@@ -25,23 +25,25 @@ import io.olvid.engine.datatypes.containers.GroupV2
 import io.olvid.engine.encoder.DecodingException
 import io.olvid.engine.encoder.Encoded
 import java.util.UUID
+import kotlin.let
 
 class ObvSyncAtom private constructor(
     @JvmField val syncType: Int,
-    @JvmField val contactIdentity: Identity?,
-    @JvmField val bytesGroupOwnerAndUid: ByteArray?,
-    @JvmField val bytesGroupIdentifier: ByteArray?,
-    @JvmField val stringValue: String?,
-    @JvmField val integerValue: Int?,
-    @JvmField val booleanValue: Boolean?,
-    @JvmField val discussionIdentifiers: List<DiscussionIdentifier>?,
-    @JvmField val messageIdentifier: MessageIdentifier?,
-    @JvmField val muteNotification: MuteNotification?
+    @JvmField val contactIdentity: Identity? = null,
+    @JvmField val bytesGroupOwnerAndUid: ByteArray? = null,
+    @JvmField val bytesGroupIdentifier: ByteArray? = null,
+    @JvmField val stringValue: String? = null,
+    @JvmField val integerValue: Int? = null,
+    @JvmField val booleanValue: Boolean? = null,
+    @JvmField val discussionIdentifiers: List<DiscussionIdentifier>? = null,
+    @JvmField val messageIdentifier: MessageIdentifier? = null,
+    @JvmField val muteNotification: MuteNotification? = null,
+    @JvmField val preferredReaction: PreferredReaction? = null,
 ) {
     val isAppSyncItem: Boolean
         get() {
             return when (syncType) {
-                TYPE_CONTACT_NICKNAME_CHANGE, TYPE_GROUP_V1_NICKNAME_CHANGE, TYPE_GROUP_V2_NICKNAME_CHANGE, TYPE_CONTACT_PERSONAL_NOTE_CHANGE, TYPE_GROUP_V1_PERSONAL_NOTE_CHANGE, TYPE_GROUP_V2_PERSONAL_NOTE_CHANGE, TYPE_OWN_PROFILE_NICKNAME_CHANGE, TYPE_CONTACT_CUSTOM_HUE_CHANGE, TYPE_CONTACT_SEND_READ_RECEIPT_CHANGE, TYPE_GROUP_V1_SEND_READ_RECEIPT_CHANGE, TYPE_GROUP_V2_SEND_READ_RECEIPT_CHANGE, TYPE_PINNED_DISCUSSIONS_CHANGE, TYPE_SETTING_DEFAULT_SEND_READ_RECEIPTS, TYPE_SETTING_AUTO_JOIN_GROUPS, TYPE_BOOKMARKED_MESSAGE_CHANGE, TYPE_ARCHIVED_DISCUSSIONS_CHANGE, TYPE_DISCUSSIONS_MUTE_CHANGE, TYPE_SETTING_LAST_RATING, TYPE_SETTING_UNARCHIVE_ON_NOTIFICATION, TYPE_STOP_SUGGESTING_CONTACT -> true
+                TYPE_CONTACT_NICKNAME_CHANGE, TYPE_GROUP_V1_NICKNAME_CHANGE, TYPE_GROUP_V2_NICKNAME_CHANGE, TYPE_CONTACT_PERSONAL_NOTE_CHANGE, TYPE_GROUP_V1_PERSONAL_NOTE_CHANGE, TYPE_GROUP_V2_PERSONAL_NOTE_CHANGE, TYPE_OWN_PROFILE_NICKNAME_CHANGE, TYPE_CONTACT_CUSTOM_HUE_CHANGE, TYPE_CONTACT_SEND_READ_RECEIPT_CHANGE, TYPE_GROUP_V1_SEND_READ_RECEIPT_CHANGE, TYPE_GROUP_V2_SEND_READ_RECEIPT_CHANGE, TYPE_PINNED_DISCUSSIONS_CHANGE, TYPE_SETTING_DEFAULT_SEND_READ_RECEIPTS, TYPE_SETTING_AUTO_JOIN_GROUPS, TYPE_BOOKMARKED_MESSAGE_CHANGE, TYPE_ARCHIVED_DISCUSSIONS_CHANGE, TYPE_DISCUSSIONS_MUTE_CHANGE, TYPE_SETTING_LAST_RATING, TYPE_SETTING_UNARCHIVE_ON_NOTIFICATION, TYPE_STOP_SUGGESTING_CONTACT, TYPE_PREFERRED_REACTION_CHANGE -> true
 
                 TYPE_TRUST_CONTACT_DETAILS, TYPE_TRUST_GROUP_V1_DETAILS, TYPE_TRUST_GROUP_V2_DETAILS -> false
                 else -> false
@@ -225,6 +227,10 @@ class ObvSyncAtom private constructor(
                 encodeds.add(Encoded.of(contactIdentity!!))
             }
 
+            TYPE_PREFERRED_REACTION_CHANGE -> {
+                encodeds.add(preferredReaction!!.encode())
+            }
+
             else -> {
                 return null
             }
@@ -262,6 +268,45 @@ class ObvSyncAtom private constructor(
                 val encodedMentions = map[DictionaryKey(EXCEPT_MENTIONED)]
                 val exceptMentioned = encodedMentions == null || encodedMentions.decodeBoolean()
                 return MuteNotification(muted, muteTimestamp, exceptMentioned)
+            }
+        }
+    }
+
+    class PreferredReaction(
+        @JvmField val globalSetting: Boolean, // if true, discussionIdentifier is null
+        @JvmField val discussionIdentifier: DiscussionIdentifier?,
+        @JvmField val emoji: String? // if null, reset the preferred emoji to use the global setting
+    ) {
+        fun encode(): Encoded {
+            val map = HashMap<DictionaryKey, Encoded>()
+            map[DictionaryKey(GLOBAL_SETTING)] = Encoded.of(globalSetting)
+            discussionIdentifier?.encode()?.let {
+                map[DictionaryKey(DISCUSSION_IDENTIFIER)] = it
+            }
+            emoji?.let {
+                map[DictionaryKey(EMOJI)] = Encoded.of(emoji)
+            }
+            return Encoded.of(map)
+        }
+
+        companion object {
+            const val GLOBAL_SETTING: String = "g"
+            const val DISCUSSION_IDENTIFIER: String = "di"
+            const val EMOJI: String = "e"
+
+            @JvmStatic
+            @Throws(DecodingException::class)
+            fun of(encoded: Encoded): PreferredReaction {
+                val map: HashMap<DictionaryKey, Encoded> = encoded.decodeDictionary()
+                val globalSetting = map[DictionaryKey(GLOBAL_SETTING)]?.decodeBoolean() ?: throw DecodingException()
+                // when globalSetting is true, any discussionIdentifier sent by the peer is meaningless and is ignored
+                val discussionIdentifier = if (globalSetting) {
+                    null
+                } else {
+                    map[DictionaryKey(DISCUSSION_IDENTIFIER)]?.let { DiscussionIdentifier.of(it) } ?: throw DecodingException()
+                }
+                val emoji = map[DictionaryKey(EMOJI)]?.decodeString()
+                return PreferredReaction(globalSetting, discussionIdentifier, emoji)
             }
         }
     }
@@ -355,7 +400,7 @@ class ObvSyncAtom private constructor(
                     GROUP_V1 -> {
                         return DiscussionIdentifier(
                             type,
-                            joinArrays(encodeds[1].decodeBytes(), encodeds[2].decodeBytes())
+                            encodeds[1].decodeBytes() + encodeds[2].decodeBytes()
                         )
                     }
                 }
@@ -388,6 +433,7 @@ class ObvSyncAtom private constructor(
         const val TYPE_SETTING_UNARCHIVE_ON_NOTIFICATION: Int = 20
         const val TYPE_SETTING_LAST_RATING: Int = 21
         const val TYPE_STOP_SUGGESTING_CONTACT: Int = 22
+        const val TYPE_PREFERRED_REACTION_CHANGE: Int = 23
 
         @JvmStatic @Throws(DecodingException::class)
         fun createContactNicknameChange(
@@ -396,15 +442,8 @@ class ObvSyncAtom private constructor(
         ): ObvSyncAtom {
             return ObvSyncAtom(
                 TYPE_CONTACT_NICKNAME_CHANGE,
-                Identity.of(bytesContactIdentity),
-                null,
-                null,
-                nickname,
-                null,
-                null,
-                null,
-                null,
-                null
+                contactIdentity = Identity.of(bytesContactIdentity),
+                stringValue = nickname,
             )
         }
 
@@ -414,15 +453,8 @@ class ObvSyncAtom private constructor(
         ): ObvSyncAtom {
             return ObvSyncAtom(
                 TYPE_GROUP_V1_NICKNAME_CHANGE,
-                null,
-                bytesGroupOwnerAndUid,
-                null,
-                nickname,
-                null,
-                null,
-                null,
-                null,
-                null
+                bytesGroupOwnerAndUid = bytesGroupOwnerAndUid,
+                stringValue = nickname,
             )
         }
 
@@ -432,15 +464,8 @@ class ObvSyncAtom private constructor(
         ): ObvSyncAtom {
             return ObvSyncAtom(
                 TYPE_GROUP_V2_NICKNAME_CHANGE,
-                null,
-                null,
-                bytesGroupV2Identifier,
-                nickname,
-                null,
-                null,
-                null,
-                null,
-                null
+                bytesGroupIdentifier = bytesGroupV2Identifier,
+                stringValue = nickname,
             )
         }
 
@@ -451,15 +476,8 @@ class ObvSyncAtom private constructor(
         ): ObvSyncAtom {
             return ObvSyncAtom(
                 TYPE_CONTACT_PERSONAL_NOTE_CHANGE,
-                Identity.of(bytesContactIdentity),
-                null,
-                null,
-                personalNote,
-                null,
-                null,
-                null,
-                null,
-                null
+                contactIdentity = Identity.of(bytesContactIdentity),
+                stringValue = personalNote,
             )
         }
 
@@ -469,15 +487,8 @@ class ObvSyncAtom private constructor(
         ): ObvSyncAtom {
             return ObvSyncAtom(
                 TYPE_GROUP_V1_PERSONAL_NOTE_CHANGE,
-                null,
-                bytesGroupOwnerAndUid,
-                null,
-                nickname,
-                null,
-                null,
-                null,
-                null,
-                null
+                bytesGroupOwnerAndUid = bytesGroupOwnerAndUid,
+                stringValue = nickname,
             )
         }
 
@@ -487,30 +498,15 @@ class ObvSyncAtom private constructor(
         ): ObvSyncAtom {
             return ObvSyncAtom(
                 TYPE_GROUP_V2_PERSONAL_NOTE_CHANGE,
-                null,
-                null,
-                bytesGroupV2Identifier,
-                nickname,
-                null,
-                null,
-                null,
-                null,
-                null
+                bytesGroupIdentifier = bytesGroupV2Identifier,
+                stringValue = nickname,
             )
         }
 
         @JvmStatic fun createOwnProfileNicknameChange(nickname: String?): ObvSyncAtom {
             return ObvSyncAtom(
                 TYPE_OWN_PROFILE_NICKNAME_CHANGE,
-                null,
-                null,
-                null,
-                nickname,
-                null,
-                null,
-                null,
-                null,
-                null
+                stringValue = nickname,
             )
         }
 
@@ -521,15 +517,8 @@ class ObvSyncAtom private constructor(
         ): ObvSyncAtom {
             return ObvSyncAtom(
                 TYPE_CONTACT_CUSTOM_HUE_CHANGE,
-                Identity.of(bytesContactIdentity),
-                null,
-                null,
-                null,
-                customHue,
-                null,
-                null,
-                null,
-                null
+                contactIdentity = Identity.of(bytesContactIdentity),
+                integerValue = customHue,
             )
         }
 
@@ -540,15 +529,8 @@ class ObvSyncAtom private constructor(
         ): ObvSyncAtom {
             return ObvSyncAtom(
                 TYPE_CONTACT_SEND_READ_RECEIPT_CHANGE,
-                Identity.of(bytesContactIdentity),
-                null,
-                null,
-                null,
-                null,
-                sendReadReceipt,
-                null,
-                null,
-                null
+                contactIdentity = Identity.of(bytesContactIdentity),
+                booleanValue = sendReadReceipt,
             )
         }
 
@@ -558,15 +540,8 @@ class ObvSyncAtom private constructor(
         ): ObvSyncAtom {
             return ObvSyncAtom(
                 TYPE_GROUP_V1_SEND_READ_RECEIPT_CHANGE,
-                null,
-                bytesGroupOwnerAndUid,
-                null,
-                null,
-                null,
-                sendReadReceipt,
-                null,
-                null,
-                null
+                bytesGroupOwnerAndUid = bytesGroupOwnerAndUid,
+                booleanValue = sendReadReceipt,
             )
         }
 
@@ -576,15 +551,8 @@ class ObvSyncAtom private constructor(
         ): ObvSyncAtom {
             return ObvSyncAtom(
                 TYPE_GROUP_V2_SEND_READ_RECEIPT_CHANGE,
-                null,
-                null,
-                bytesGroupV2Identifier,
-                null,
-                null,
-                sendReadReceipt,
-                null,
-                null,
-                null
+                bytesGroupIdentifier = bytesGroupV2Identifier,
+                booleanValue = sendReadReceipt,
             )
         }
 
@@ -594,15 +562,8 @@ class ObvSyncAtom private constructor(
         ): ObvSyncAtom {
             return ObvSyncAtom(
                 TYPE_PINNED_DISCUSSIONS_CHANGE,
-                null,
-                null,
-                null,
-                null,
-                null,
-                ordered,
-                discussionIdentifiers,
-                null,
-                null
+                booleanValue = ordered,
+                discussionIdentifiers = discussionIdentifiers,
             )
         }
 
@@ -613,15 +574,8 @@ class ObvSyncAtom private constructor(
         ): ObvSyncAtom {
             return ObvSyncAtom(
                 TYPE_TRUST_CONTACT_DETAILS,
-                contactIdentity,
-                null,
-                null,
-                serializedIdentityDetailsWithVersionAndPhoto,
-                null,
-                null,
-                null,
-                null,
-                null
+                contactIdentity = contactIdentity,
+                stringValue = serializedIdentityDetailsWithVersionAndPhoto,
             )
         }
 
@@ -632,15 +586,8 @@ class ObvSyncAtom private constructor(
         ): ObvSyncAtom {
             return ObvSyncAtom(
                 TYPE_TRUST_GROUP_V1_DETAILS,
-                null,
-                bytesGroupOwnerAndUid,
-                null,
-                serializedGroupDetailsWithVersionAndPhoto,
-                null,
-                null,
-                null,
-                null,
-                null
+                bytesGroupOwnerAndUid = bytesGroupOwnerAndUid,
+                stringValue = serializedGroupDetailsWithVersionAndPhoto,
             )
         }
 
@@ -650,45 +597,22 @@ class ObvSyncAtom private constructor(
         ): ObvSyncAtom {
             return ObvSyncAtom(
                 TYPE_TRUST_GROUP_V2_DETAILS,
-                null,
-                null,
-                groupIdentifier.encode().bytes,
-                null,
-                version,
-                null,
-                null,
-                null,
-                null
+                bytesGroupIdentifier = groupIdentifier.encode().bytes,
+                integerValue = version,
             )
         }
 
         @JvmStatic fun createSettingDefaultSendReadReceipts(sendReadReceipt: Boolean): ObvSyncAtom {
             return ObvSyncAtom(
                 TYPE_SETTING_DEFAULT_SEND_READ_RECEIPTS,
-                null,
-                null,
-                null,
-                null,
-                null,
-                sendReadReceipt,
-                null,
-                null,
-                null
+                booleanValue = sendReadReceipt,
             )
         }
 
         @JvmStatic fun createSettingAutoJoinGroups(autoJoinGroupsType: String?): ObvSyncAtom {
             return ObvSyncAtom(
                 TYPE_SETTING_AUTO_JOIN_GROUPS,
-                null,
-                null,
-                null,
-                autoJoinGroupsType,
-                null,
-                null,
-                null,
-                null,
-                null
+                stringValue = autoJoinGroupsType,
             )
         }
 
@@ -698,15 +622,8 @@ class ObvSyncAtom private constructor(
         ): ObvSyncAtom {
             return ObvSyncAtom(
                 TYPE_BOOKMARKED_MESSAGE_CHANGE,
-                null,
-                null,
-                null,
-                null,
-                null,
-                bookmarked,
-                null,
-                messageIdentifier,
-                null
+                booleanValue = bookmarked,
+                messageIdentifier = messageIdentifier,
             )
         }
 
@@ -716,15 +633,8 @@ class ObvSyncAtom private constructor(
         ): ObvSyncAtom {
             return ObvSyncAtom(
                 TYPE_ARCHIVED_DISCUSSIONS_CHANGE,
-                null,
-                null,
-                null,
-                null,
-                null,
-                archived,
-                discussionIdentifiers,
-                null,
-                null
+                booleanValue =   archived,
+                discussionIdentifiers = discussionIdentifiers,
             )
         }
 
@@ -734,60 +644,41 @@ class ObvSyncAtom private constructor(
         ): ObvSyncAtom {
             return ObvSyncAtom(
                 TYPE_DISCUSSIONS_MUTE_CHANGE,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                discussionIdentifiers,
-                null,
-                muteNotification
+                discussionIdentifiers = discussionIdentifiers,
+                muteNotification = muteNotification
             )
         }
 
         @JvmStatic fun createSettingUnarchiveOnNotification(unarchiveOnNotification: Boolean?): ObvSyncAtom {
             return ObvSyncAtom(
                 TYPE_SETTING_UNARCHIVE_ON_NOTIFICATION,
-                null,
-                null,
-                null,
-                null,
-                null,
-                unarchiveOnNotification,
-                null,
-                null,
-                null
+                booleanValue = unarchiveOnNotification,
             )
         }
 
         @JvmStatic fun createSettingLastRating(lastRating: Int, lastRatingTimestamp: Long): ObvSyncAtom {
             return ObvSyncAtom(
                 TYPE_SETTING_LAST_RATING,
-                null,
-                null,
-                null,
-                lastRatingTimestamp.toString(),
-                lastRating,
-                null,
-                null,
-                null,
-                null
+                stringValue = lastRatingTimestamp.toString(),
+                integerValue = lastRating,
             )
         }
 
         @JvmStatic fun createStopSuggestingContact(bytesContactIdentity: ByteArray): ObvSyncAtom {
             return ObvSyncAtom(
                 TYPE_STOP_SUGGESTING_CONTACT,
-                Identity.of(bytesContactIdentity),
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null
+                contactIdentity = Identity.of(bytesContactIdentity),
+            )
+        }
+
+        @JvmStatic fun createPreferredReaction(discussionIdentifier: DiscussionIdentifier?, emoji: String?) : ObvSyncAtom {
+            return ObvSyncAtom(
+                TYPE_PREFERRED_REACTION_CHANGE,
+                preferredReaction = PreferredReaction(
+                    globalSetting = discussionIdentifier == null,
+                    discussionIdentifier = discussionIdentifier,
+                    emoji = emoji,
+                )
             )
         }
 
@@ -802,28 +693,13 @@ class ObvSyncAtom private constructor(
                     if (encodeds.size == 2) {
                         return ObvSyncAtom(
                             syncType,
-                            encodeds[1].decodeIdentity(),
-                            null,
-                            null,
-                            null,
-                            null,
-                            null,
-                            null,
-                            null,
-                            null
+                            contactIdentity = encodeds[1].decodeIdentity(),
                         )
                     } else if (encodeds.size == 3) {
                         return ObvSyncAtom(
                             syncType,
-                            encodeds[1].decodeIdentity(),
-                            null,
-                            null,
-                            encodeds[2].decodeString(),
-                            null,
-                            null,
-                            null,
-                            null,
-                            null
+                            contactIdentity = encodeds[1].decodeIdentity(),
+                            stringValue = encodeds[2].decodeString(),
                         )
                     }
                 }
@@ -832,28 +708,13 @@ class ObvSyncAtom private constructor(
                     if (encodeds.size == 3) {
                         return ObvSyncAtom(
                             syncType,
-                            null,
-                            joinArrays(encodeds[1].decodeBytes(), encodeds[2].decodeBytes()),
-                            null,
-                            null,
-                            null,
-                            null,
-                            null,
-                            null,
-                            null
+                            bytesGroupOwnerAndUid = encodeds[1].decodeBytes() + encodeds[2].decodeBytes(),
                         )
                     } else if (encodeds.size == 4) {
                         return ObvSyncAtom(
                             syncType,
-                            null,
-                            joinArrays(encodeds[1].decodeBytes(), encodeds[2].decodeBytes()),
-                            null,
-                            encodeds[3].decodeString(),
-                            null,
-                            null,
-                            null,
-                            null,
-                            null
+                            bytesGroupOwnerAndUid = encodeds[1].decodeBytes() + encodeds[2].decodeBytes(),
+                            stringValue = encodeds[3].decodeString(),
                         )
                     }
                 }
@@ -862,28 +723,13 @@ class ObvSyncAtom private constructor(
                     if (encodeds.size == 2) {
                         return ObvSyncAtom(
                             syncType,
-                            null,
-                            null,
-                            encodeds[1].decodeBytes(),
-                            null,
-                            null,
-                            null,
-                            null,
-                            null,
-                            null
+                            bytesGroupIdentifier = encodeds[1].decodeBytes(),
                         )
                     } else if (encodeds.size == 3) {
                         return ObvSyncAtom(
                             syncType,
-                            null,
-                            null,
-                            encodeds[1].decodeBytes(),
-                            encodeds[2].decodeString(),
-                            null,
-                            null,
-                            null,
-                            null,
-                            null
+                            bytesGroupIdentifier = encodeds[1].decodeBytes(),
+                            stringValue = encodeds[2].decodeString(),
                         )
                     }
                 }
@@ -892,28 +738,11 @@ class ObvSyncAtom private constructor(
                     if (encodeds.size == 1) {
                         return ObvSyncAtom(
                             syncType,
-                            null,
-                            null,
-                            null,
-                            null,
-                            null,
-                            null,
-                            null,
-                            null,
-                            null
                         )
                     } else if (encodeds.size == 2) {
                         return ObvSyncAtom(
                             syncType,
-                            null,
-                            null,
-                            null,
-                            encodeds[1].decodeString(),
-                            null,
-                            null,
-                            null,
-                            null,
-                            null
+                            stringValue = encodeds[1].decodeString(),
                         )
                     }
                 }
@@ -922,28 +751,13 @@ class ObvSyncAtom private constructor(
                     if (encodeds.size == 2) {
                         return ObvSyncAtom(
                             syncType,
-                            encodeds[1].decodeIdentity(),
-                            null,
-                            null,
-                            null,
-                            null,
-                            null,
-                            null,
-                            null,
-                            null
+                            contactIdentity = encodeds[1].decodeIdentity(),
                         )
                     } else if (encodeds.size == 3) {
                         return ObvSyncAtom(
                             syncType,
-                            encodeds[1].decodeIdentity(),
-                            null,
-                            null,
-                            null,
-                            encodeds[2].decodeLong().toInt(),
-                            null,
-                            null,
-                            null,
-                            null
+                            contactIdentity = encodeds[1].decodeIdentity(),
+                            integerValue = encodeds[2].decodeLong().toInt(),
                         )
                     }
                 }
@@ -952,28 +766,13 @@ class ObvSyncAtom private constructor(
                     if (encodeds.size == 2) {
                         return ObvSyncAtom(
                             syncType,
-                            encodeds[1].decodeIdentity(),
-                            null,
-                            null,
-                            null,
-                            null,
-                            null,
-                            null,
-                            null,
-                            null
+                            contactIdentity = encodeds[1].decodeIdentity(),
                         )
                     } else if (encodeds.size == 3) {
                         return ObvSyncAtom(
                             syncType,
-                            encodeds[1].decodeIdentity(),
-                            null,
-                            null,
-                            null,
-                            null,
-                            encodeds[2].decodeBoolean(),
-                            null,
-                            null,
-                            null
+                            contactIdentity = encodeds[1].decodeIdentity(),
+                            booleanValue = encodeds[2].decodeBoolean(),
                         )
                     }
                 }
@@ -982,28 +781,13 @@ class ObvSyncAtom private constructor(
                     if (encodeds.size == 3) {
                         return ObvSyncAtom(
                             syncType,
-                            null,
-                            joinArrays(encodeds[1].decodeBytes(), encodeds[2].decodeBytes()),
-                            null,
-                            null,
-                            null,
-                            null,
-                            null,
-                            null,
-                            null
+                            bytesGroupOwnerAndUid = encodeds[1].decodeBytes() + encodeds[2].decodeBytes(),
                         )
                     } else if (encodeds.size == 4) {
                         return ObvSyncAtom(
                             syncType,
-                            null,
-                            joinArrays(encodeds[1].decodeBytes(), encodeds[2].decodeBytes()),
-                            null,
-                            null,
-                            null,
-                            encodeds[3].decodeBoolean(),
-                            null,
-                            null,
-                            null
+                            bytesGroupOwnerAndUid = encodeds[1].decodeBytes() + encodeds[2].decodeBytes(),
+                            booleanValue = encodeds[3].decodeBoolean(),
                         )
                     }
                 }
@@ -1012,28 +796,13 @@ class ObvSyncAtom private constructor(
                     if (encodeds.size == 2) {
                         return ObvSyncAtom(
                             syncType,
-                            null,
-                            null,
-                            encodeds[1].decodeBytes(),
-                            null,
-                            null,
-                            null,
-                            null,
-                            null,
-                            null
+                            bytesGroupIdentifier = encodeds[1].decodeBytes(),
                         )
                     } else if (encodeds.size == 3) {
                         return ObvSyncAtom(
                             syncType,
-                            null,
-                            null,
-                            encodeds[1].decodeBytes(),
-                            null,
-                            null,
-                            encodeds[2].decodeBoolean(),
-                            null,
-                            null,
-                            null
+                            bytesGroupIdentifier = encodeds[1].decodeBytes(),
+                            booleanValue = encodeds[2].decodeBoolean(),
                         )
                     }
                 }
@@ -1049,105 +818,54 @@ class ObvSyncAtom private constructor(
                     }
                     return ObvSyncAtom(
                         syncType,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        encodeds[2].decodeBoolean(),
-                        discussionIdentifiers,
-                        null,
-                        null
+                        booleanValue = encodeds[2].decodeBoolean(),
+                        discussionIdentifiers =  discussionIdentifiers,
                     )
                 }
 
                 TYPE_TRUST_CONTACT_DETAILS -> {
                     return ObvSyncAtom(
                         syncType,
-                        encodeds[1].decodeIdentity(),
-                        null,
-                        null,
-                        encodeds[2].decodeString(),
-                        null,
-                        null,
-                        null,
-                        null,
-                        null
+                        contactIdentity = encodeds[1].decodeIdentity(),
+                        stringValue = encodeds[2].decodeString(),
                     )
                 }
 
                 TYPE_TRUST_GROUP_V1_DETAILS -> {
                     return ObvSyncAtom(
                         syncType,
-                        null,
-                        joinArrays(encodeds[1].decodeBytes(), encodeds[2].decodeBytes()),
-                        null,
-                        encodeds[3].decodeString(),
-                        null,
-                        null,
-                        null,
-                        null,
-                        null
+                        bytesGroupOwnerAndUid = encodeds[1].decodeBytes() + encodeds[2].decodeBytes(),
+                        stringValue = encodeds[3].decodeString(),
                     )
                 }
 
                 TYPE_TRUST_GROUP_V2_DETAILS -> {
                     return ObvSyncAtom(
                         syncType,
-                        null,
-                        null,
-                        encodeds[1].decodeBytes(),
-                        null,
-                        encodeds[2].decodeLong().toInt(),
-                        null,
-                        null,
-                        null,
-                        null
+                        bytesGroupIdentifier = encodeds[1].decodeBytes(),
+                        integerValue = encodeds[2].decodeLong().toInt(),
                     )
                 }
 
                 TYPE_SETTING_DEFAULT_SEND_READ_RECEIPTS, TYPE_SETTING_UNARCHIVE_ON_NOTIFICATION -> {
                     return ObvSyncAtom(
                         syncType,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        encodeds[1].decodeBoolean(),
-                        null,
-                        null,
-                        null
+                        booleanValue = encodeds[1].decodeBoolean(),
                     )
                 }
 
                 TYPE_SETTING_AUTO_JOIN_GROUPS -> {
                     return ObvSyncAtom(
                         syncType,
-                        null,
-                        null,
-                        null,
-                        encodeds[1].decodeString(),
-                        null,
-                        null,
-                        null,
-                        null,
-                        null
+                        stringValue = encodeds[1].decodeString(),
                     )
                 }
 
                 TYPE_BOOKMARKED_MESSAGE_CHANGE -> {
                     return ObvSyncAtom(
                         syncType,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        encodeds[2].decodeBoolean(),
-                        null,
-                        MessageIdentifier.of(encodeds[1]),
-                        null
+                        booleanValue =  encodeds[2].decodeBoolean(),
+                        messageIdentifier = MessageIdentifier.of(encodeds[1]),
                     )
                 }
 
@@ -1162,56 +880,34 @@ class ObvSyncAtom private constructor(
                     }
                     return ObvSyncAtom(
                         syncType,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        discussionIdentifiers,
-                        null,
-                        MuteNotification.of(encodeds[2])
+                        discussionIdentifiers = discussionIdentifiers,
+                        muteNotification = MuteNotification.of(encodeds[2])
                     )
                 }
 
                 TYPE_SETTING_LAST_RATING -> {
                     return ObvSyncAtom(
                         syncType,
-                        null,
-                        null,
-                        null,
-                        encodeds[2].decodeString(),
-                        encodeds[1].decodeLong().toInt(),
-                        null,
-                        null,
-                        null,
-                        null
+                        stringValue = encodeds[2].decodeString(),
+                        integerValue = encodeds[1].decodeLong().toInt(),
                     )
                 }
 
                 TYPE_STOP_SUGGESTING_CONTACT -> {
                     return ObvSyncAtom(
                         syncType,
-                        encodeds[1].decodeIdentity(),
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null
+                        contactIdentity = encodeds[1].decodeIdentity(),
+                    )
+                }
+
+                TYPE_PREFERRED_REACTION_CHANGE -> {
+                    return ObvSyncAtom(
+                        syncType,
+                        preferredReaction = PreferredReaction.of(encodeds[1])
                     )
                 }
             }
             throw DecodingException()
-        }
-
-        private fun joinArrays(a: ByteArray, b: ByteArray): ByteArray {
-            val out = ByteArray(a.size + b.size)
-            System.arraycopy(a, 0, out, 0, a.size)
-            System.arraycopy(b, 0, out, a.size, b.size)
-            return out
         }
     }
 }

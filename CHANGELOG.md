@@ -1,3 +1,8 @@
+# Version 1.2.1
+2026-09-21
+
+- Added a new type of ObvSyncAtom `TYPE_PREFERRED_REACTION_CHANGE`
+
 # Version 1.2.0
 2026-09-01
 

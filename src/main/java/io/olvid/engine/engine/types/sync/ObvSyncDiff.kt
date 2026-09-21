@@ -36,6 +36,7 @@ class ObvSyncDiff(
         const val TYPE_SETTING_AUTO_JOIN_GROUPS: Int = 0
         const val TYPE_SETTING_SEND_READ_RECEIPT: Int = 1
         const val TYPE_SETTING_UNARCHIVE_ON_NOTIFICATION: Int = 2
+        const val TYPE_SETTING_PREFERRED_REACTION: Int = 3
 
         @JvmStatic fun createSettingAutoJoinGroups(localValue: String?, otherValue: String?): ObvSyncDiff {
             return ObvSyncDiff(TYPE_SETTING_AUTO_JOIN_GROUPS, null, null, localValue, otherValue)
@@ -53,6 +54,10 @@ class ObvSyncDiff(
                 null,
                 null
             )
+        }
+
+        @JvmStatic fun createSettingPreferredReaction(localValue: String, otherValue: String): ObvSyncDiff {
+            return ObvSyncDiff(TYPE_SETTING_SEND_READ_RECEIPT, null, null, localValue, otherValue)
         }
     }
 }

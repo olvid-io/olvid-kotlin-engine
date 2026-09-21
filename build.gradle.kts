@@ -28,7 +28,7 @@ plugins {
 }
 
 group = "io.olvid.messenger"
-version = "1.2.0"
+version = "1.2.1"
 
 repositories {
     mavenCentral()
@@ -56,12 +56,12 @@ dependencies {
     // do not update further: jackson >2.13 does not work on older Android APIs (the Android app is a consumer)
     implementation("com.fasterxml.jackson.core:jackson-databind:2.13.4")
 
-    implementation("org.slf4j:slf4j-api:2.0.17")
-    implementation("org.slf4j:slf4j-simple:2.0.17")
+    implementation("org.slf4j:slf4j-api:2.0.19")
+    implementation("org.slf4j:slf4j-simple:2.0.19")
 
-    implementation("org.bitbucket.b_c:jose4j:0.9.6")
+    implementation("org.bitbucket.b_c:jose4j:0.9.7")
 
-    implementation("com.squareup.okhttp3:okhttp:5.3.2")
+    implementation("com.squareup.okhttp3:okhttp:5.5.0")
     implementation("net.iharder:base64:2.3.9")
 
     // The engine talks only java.sql and discovers the driver via DriverManager/ServiceLoader at
@@ -72,8 +72,14 @@ dependencies {
 }
 
 java {
+    withSourcesJar()
     sourceCompatibility = JavaVersion.VERSION_17
     targetCompatibility = JavaVersion.VERSION_17
+}
+
+// Central requires a javadoc artifact to exist — this one is just empty
+val emptyJavadocJar = tasks.register<Jar>("emptyJavadocJar") {
+    archiveClassifier.set("javadoc")
 }
 
 val cred = Properties()
@@ -87,6 +93,7 @@ afterEvaluate {
         publications {
             create<MavenPublication>("release") {
                 from(components["java"])
+                artifact(emptyJavadocJar)
 
                 groupId = "io.olvid.messenger"
                 artifactId = "olvid-kotlin-engine"

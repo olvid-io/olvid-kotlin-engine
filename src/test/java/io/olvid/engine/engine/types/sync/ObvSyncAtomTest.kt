@@ -34,6 +34,7 @@ import io.olvid.engine.encoder.Encoded
 import io.olvid.engine.engine.types.sync.ObvSyncAtom.DiscussionIdentifier
 import io.olvid.engine.engine.types.sync.ObvSyncAtom.MessageIdentifier
 import io.olvid.engine.engine.types.sync.ObvSyncAtom.MuteNotification
+import io.olvid.engine.engine.types.sync.ObvSyncAtom.PreferredReaction
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -53,17 +54,22 @@ import java.util.UUID
  * corrupts sync state. A Kotlin migration that renumbers any constant breaks real user data.
  *
  * Groups:
- *  1. Wire-format TYPE_* constant pin — 22 tests
- *  2. Static factory field population contracts — ~22 tests
- *  3. isAppSyncItem() dispatch — 22 tests
- *  4. Encode/decode round-trips for 6 representative types — 6 tests
+ *  1. Wire-format TYPE_* constant pin — 24 tests
+ *  2. Static factory field population contracts — 29 tests
+ *  3. isAppSyncItem() dispatch — 24 tests
+ *  4. Encode/decode round-trips for the representative types — 10 tests
  *  5. of() error paths — 3 tests
- *  6. encode() layout pin — 2 tests
+ *  6. encode() layout pin — 4 tests
  *  7. Wire-format golden-hex pin — 1 test
  *  8. DiscussionIdentifier nested class — 6 tests
  *  9. MessageIdentifier nested class — 3 tests
  * 10. MuteNotification nested class — 5 tests
  * 11. No custom equals/hashCode: reference identity — 1 test
+ * 12. getStringValue() trim/null contract — 3 tests
+ * 13. PreferredReaction nested class — 10 tests
+ *
+ * Groups 1 to 6 cover every TYPE_* constant, including the two most recent ones
+ * (TYPE_STOP_SUGGESTING_CONTACT and TYPE_PREFERRED_REACTION_CHANGE).
  */
 class ObvSyncAtomTest {
 
@@ -194,6 +200,12 @@ class ObvSyncAtomTest {
 
     @Test fun testTypeConstant_SETTING_LAST_RATING_is21() =
         assertEquals(21, ObvSyncAtom.TYPE_SETTING_LAST_RATING)
+
+    @Test fun testTypeConstant_STOP_SUGGESTING_CONTACT_is22() =
+        assertEquals(22, ObvSyncAtom.TYPE_STOP_SUGGESTING_CONTACT)
+
+    @Test fun testTypeConstant_PREFERRED_REACTION_CHANGE_is23() =
+        assertEquals(23, ObvSyncAtom.TYPE_PREFERRED_REACTION_CHANGE)
 
     // ─── Group 2: Static factory field population contracts ───────────────────
     //
@@ -462,6 +474,78 @@ class ObvSyncAtomTest {
         assertNull(atom.booleanValue)
     }
 
+    @Test
+    fun testFactory_createStopSuggestingContact_populatesIdentityOnly() {
+        val atom = ObvSyncAtom.createStopSuggestingContact(bytesContactIdentity)
+        assertEquals(ObvSyncAtom.TYPE_STOP_SUGGESTING_CONTACT, atom.syncType)
+        assertEquals(contactIdentity, atom.contactIdentity)
+        assertArrayEquals(bytesContactIdentity, atom.bytesContactIdentity)
+        // the contact identity is the whole payload: every other value field stays null
+        assertNull(atom.getStringValue())
+        assertNull(atom.integerValue)
+        assertNull(atom.booleanValue)
+        assertNull(atom.bytesGroupOwnerAndUid)
+        assertNull(atom.bytesGroupIdentifier)
+        assertNull(atom.discussionIdentifiers)
+        assertNull(atom.messageIdentifier)
+        assertNull(atom.muteNotification)
+        assertNull(atom.preferredReaction)
+    }
+
+    @Test(expected = DecodingException::class)
+    fun testFactory_createStopSuggestingContact_invalidIdentityBytes_throwsDecodingException() {
+        // the factory parses the bytes through Identity.of(), so garbage is rejected up front
+        ObvSyncAtom.createStopSuggestingContact(byteArrayOf(0x01, 0x02, 0x03))
+    }
+
+    @Test
+    fun testFactory_createPreferredReaction_globalSetting_populatesPreferredReaction() {
+        // a null discussionIdentifier means the change applies to the global setting
+        val atom = ObvSyncAtom.createPreferredReaction(null, "\uD83D\uDC4D")
+        assertEquals(ObvSyncAtom.TYPE_PREFERRED_REACTION_CHANGE, atom.syncType)
+        val reaction = atom.preferredReaction
+        assertNotNull(reaction)
+        assertTrue("a null discussionIdentifier must set globalSetting", reaction!!.globalSetting)
+        assertNull(reaction.discussionIdentifier)
+        assertEquals("\uD83D\uDC4D", reaction.emoji)
+        assertNull(atom.contactIdentity)
+        assertNull(atom.getStringValue())
+        assertNull(atom.integerValue)
+        assertNull(atom.booleanValue)
+        assertNull(atom.discussionIdentifiers)
+        assertNull(atom.messageIdentifier)
+        assertNull(atom.muteNotification)
+    }
+
+    @Test
+    fun testFactory_createPreferredReaction_perDiscussion_populatesPreferredReaction() {
+        val discussionIdentifier = DiscussionIdentifier(DiscussionIdentifier.CONTACT, bytesContactIdentity)
+        val atom = ObvSyncAtom.createPreferredReaction(discussionIdentifier, "\u2764\uFE0F")
+        assertEquals(ObvSyncAtom.TYPE_PREFERRED_REACTION_CHANGE, atom.syncType)
+        val reaction = atom.preferredReaction
+        assertNotNull(reaction)
+        assertFalse("a non-null discussionIdentifier must clear globalSetting", reaction!!.globalSetting)
+        assertEquals(discussionIdentifier, reaction.discussionIdentifier)
+        assertEquals("\u2764\uFE0F", reaction.emoji)
+        assertNull(atom.discussionIdentifiers)
+    }
+
+    @Test
+    fun testFactory_createPreferredReaction_nullEmoji_isAReset() {
+        // a null emoji resets the preferred reaction (global: back to default, discussion: back to global)
+        val globalReset = ObvSyncAtom.createPreferredReaction(null, null).preferredReaction
+        assertNotNull(globalReset)
+        assertTrue(globalReset!!.globalSetting)
+        assertNull(globalReset.emoji)
+
+        val discussionIdentifier = DiscussionIdentifier(DiscussionIdentifier.GROUP_V2, bytesGroupV2Identifier)
+        val discussionReset = ObvSyncAtom.createPreferredReaction(discussionIdentifier, null).preferredReaction
+        assertNotNull(discussionReset)
+        assertFalse(discussionReset!!.globalSetting)
+        assertEquals(discussionIdentifier, discussionReset.discussionIdentifier)
+        assertNull(discussionReset.emoji)
+    }
+
     // ─── Group 3: isAppSyncItem() dispatch ────────────────────────────────────
     //
     // Engine-level types (TRUST_*) must return false; all app types must return true.
@@ -565,6 +649,17 @@ class ObvSyncAtomTest {
     fun testIsAppSyncItem_settingLastRating_isTrue() =
         assertTrue(ObvSyncAtom.createSettingLastRating(5, 9999L).isAppSyncItem)
 
+    @Test
+    fun testIsAppSyncItem_stopSuggestingContact_isTrue() =
+        assertTrue(ObvSyncAtom.createStopSuggestingContact(bytesContactIdentity).isAppSyncItem)
+
+    @Test
+    fun testIsAppSyncItem_preferredReactionChange_isTrue() {
+        assertTrue(ObvSyncAtom.createPreferredReaction(null, "\uD83D\uDC4D").isAppSyncItem)
+        val id = DiscussionIdentifier(DiscussionIdentifier.CONTACT, bytesContactIdentity)
+        assertTrue(ObvSyncAtom.createPreferredReaction(id, "\uD83D\uDC4D").isAppSyncItem)
+    }
+
     // ─── Group 4: Encode/decode round-trips ───────────────────────────────────
     //
     // For each representative type: build via factory → encode() → of() and
@@ -638,6 +733,69 @@ class ObvSyncAtomTest {
         assertEquals("1699999999", decoded.getStringValue())
     }
 
+    @Test
+    fun testRoundTrip_stopSuggestingContact_identityKeyed() {
+        val atom = ObvSyncAtom.createStopSuggestingContact(bytesContactIdentity2)
+        val decoded = ObvSyncAtom.of(atom.encode()!!)
+
+        assertEquals(ObvSyncAtom.TYPE_STOP_SUGGESTING_CONTACT, decoded.syncType)
+        assertEquals(contactIdentity2, decoded.contactIdentity)
+        assertArrayEquals(bytesContactIdentity2, decoded.bytesContactIdentity)
+        assertNull(decoded.getStringValue())
+        assertNull(decoded.booleanValue)
+        assertNull(decoded.integerValue)
+    }
+
+    @Test
+    fun testRoundTrip_preferredReactionChange_globalSetting() {
+        val atom = ObvSyncAtom.createPreferredReaction(null, "\uD83D\uDC4D")
+        val decoded = ObvSyncAtom.of(atom.encode()!!)
+
+        assertEquals(ObvSyncAtom.TYPE_PREFERRED_REACTION_CHANGE, decoded.syncType)
+        val reaction = decoded.preferredReaction
+        assertNotNull(reaction)
+        assertTrue(reaction!!.globalSetting)
+        assertNull(reaction.discussionIdentifier)
+        assertEquals("\uD83D\uDC4D", reaction.emoji)
+    }
+
+    @Test
+    fun testRoundTrip_preferredReactionChange_perDiscussion() {
+        val atom = ObvSyncAtom.createPreferredReaction(
+            DiscussionIdentifier(DiscussionIdentifier.CONTACT, bytesContactIdentity),
+            "\u2764\uFE0F",
+        )
+        val decoded = ObvSyncAtom.of(atom.encode()!!)
+
+        assertEquals(ObvSyncAtom.TYPE_PREFERRED_REACTION_CHANGE, decoded.syncType)
+        val reaction = decoded.preferredReaction
+        assertNotNull(reaction)
+        assertFalse(reaction!!.globalSetting)
+        val decodedDiscussionIdentifier = reaction.discussionIdentifier
+        assertNotNull(decodedDiscussionIdentifier)
+        assertEquals(DiscussionIdentifier.CONTACT, decodedDiscussionIdentifier!!.type)
+        assertArrayEquals(bytesContactIdentity, decodedDiscussionIdentifier.bytesDiscussionIdentifier)
+        assertEquals("\u2764\uFE0F", reaction.emoji)
+    }
+
+    @Test
+    fun testRoundTrip_preferredReactionChange_nullEmojiSurvives() {
+        val atom = ObvSyncAtom.createPreferredReaction(
+            DiscussionIdentifier(DiscussionIdentifier.GROUP_V1, bytesGroupOwnerAndUid),
+            null,
+        )
+        val decoded = ObvSyncAtom.of(atom.encode()!!)
+
+        val reaction = decoded.preferredReaction
+        assertNotNull(reaction)
+        assertFalse(reaction!!.globalSetting)
+        val decodedDiscussionIdentifier = reaction.discussionIdentifier
+        assertNotNull(decodedDiscussionIdentifier)
+        assertEquals(DiscussionIdentifier.GROUP_V1, decodedDiscussionIdentifier!!.type)
+        assertArrayEquals(bytesGroupOwnerAndUid, decodedDiscussionIdentifier.bytesDiscussionIdentifier)
+        assertNull("a null emoji must stay null across a round-trip", reaction.emoji)
+    }
+
     // ─── Group 5: of() error paths ────────────────────────────────────────────
 
     @Test(expected = DecodingException::class)
@@ -684,6 +842,31 @@ class ObvSyncAtomTest {
         assertEquals(2, outer.size)
         assertEquals(ObvSyncAtom.TYPE_SETTING_DEFAULT_SEND_READ_RECEIPTS.toLong(), outer[0].decodeLong())
         assertTrue(outer[1].decodeBoolean())
+    }
+
+    @Test
+    fun testEncodeLayout_stopSuggestingContact_has2Elements() {
+        val atom = ObvSyncAtom.createStopSuggestingContact(bytesContactIdentity)
+        val encodeds = atom.encode()!!.decodeList()
+        assertEquals(2, encodeds.size)
+        assertEquals(
+            ObvSyncAtom.TYPE_STOP_SUGGESTING_CONTACT.toLong(),
+            encodeds[0].decodeLong(),
+        )
+        assertEquals(contactIdentity, encodeds[1].decodeIdentity())
+    }
+
+    @Test
+    fun testEncodeLayout_preferredReactionChange_has2Elements() {
+        val atom = ObvSyncAtom.createPreferredReaction(null, "\uD83D\uDC4D")
+        val encodeds = atom.encode()!!.decodeList()
+        assertEquals(2, encodeds.size)
+        assertEquals(
+            ObvSyncAtom.TYPE_PREFERRED_REACTION_CHANGE.toLong(),
+            encodeds[0].decodeLong(),
+        )
+        // the whole payload is a single encoded dictionary
+        assertNotNull(encodeds[1].decodeDictionary())
     }
 
     // ─── Group 7: Wire-format golden-hex pin ──────────────────────────────────
@@ -907,5 +1090,138 @@ class ObvSyncAtomTest {
     fun testGetStringValue_normalString_returnsAsIs() {
         val atom = ObvSyncAtom.createSettingAutoJoinGroups("nobody")
         assertEquals("nobody", atom.getStringValue())
+    }
+
+    // ─── Group 13: PreferredReaction nested class ─────────────────────────────
+    //
+    // PreferredReaction is the payload of TYPE_PREFERRED_REACTION_CHANGE. It is
+    // encoded as a dictionary so that keys can be added later without breaking
+    // older peers, which makes the of() validation rules the real contract:
+    //   - GLOBAL_SETTING is mandatory
+    //   - when it is false, DISCUSSION_IDENTIFIER is mandatory too
+    //   - when it is true, any DISCUSSION_IDENTIFIER is meaningless and ignored
+    //   - EMOJI is always optional; absent means "reset to the default"
+
+    @Test
+    fun testPreferredReaction_keyConstants() {
+        assertEquals("g", PreferredReaction.GLOBAL_SETTING)
+        assertEquals("di", PreferredReaction.DISCUSSION_IDENTIFIER)
+        assertEquals("e", PreferredReaction.EMOJI)
+    }
+
+    @Test
+    fun testPreferredReaction_roundTrip_global() {
+        val decoded = PreferredReaction.of(PreferredReaction(true, null, "\uD83D\uDC4D").encode())
+
+        assertTrue(decoded.globalSetting)
+        assertNull(decoded.discussionIdentifier)
+        assertEquals("\uD83D\uDC4D", decoded.emoji)
+    }
+
+    @Test
+    fun testPreferredReaction_roundTrip_eachDiscussionIdentifierType() {
+        val cases = listOf(
+            DiscussionIdentifier(DiscussionIdentifier.CONTACT, bytesContactIdentity),
+            DiscussionIdentifier(DiscussionIdentifier.GROUP_V1, bytesGroupOwnerAndUid),
+            DiscussionIdentifier(DiscussionIdentifier.GROUP_V2, bytesGroupV2Identifier),
+        )
+        for (discussionIdentifier in cases) {
+            val decoded = PreferredReaction.of(
+                PreferredReaction(false, discussionIdentifier, "\uD83C\uDF89").encode()
+            )
+
+            assertFalse(decoded.globalSetting)
+            val decodedDiscussionIdentifier = decoded.discussionIdentifier
+            assertNotNull(decodedDiscussionIdentifier)
+            assertEquals(discussionIdentifier.type, decodedDiscussionIdentifier!!.type)
+            assertArrayEquals(
+                discussionIdentifier.bytesDiscussionIdentifier,
+                decodedDiscussionIdentifier.bytesDiscussionIdentifier,
+            )
+            assertEquals("\uD83C\uDF89", decoded.emoji)
+        }
+    }
+
+    @Test
+    fun testPreferredReaction_encodeOmitsAbsentOptionalKeys() {
+        val map = PreferredReaction(true, null, null).encode().decodeDictionary()
+
+        assertEquals("only the mandatory key must be encoded", 1, map.size)
+        assertNotNull(map[io.olvid.engine.datatypes.DictionaryKey(PreferredReaction.GLOBAL_SETTING)])
+        assertNull(map[io.olvid.engine.datatypes.DictionaryKey(PreferredReaction.DISCUSSION_IDENTIFIER)])
+        assertNull(map[io.olvid.engine.datatypes.DictionaryKey(PreferredReaction.EMOJI)])
+    }
+
+    @Test
+    fun testPreferredReaction_multiByteEmojiRoundTrip() {
+        // a ZWJ sequence: the emoji is stored as a UTF-8 string, not a single code point
+        val family = "\uD83D\uDC68\u200D\uD83D\uDC69\u200D\uD83D\uDC67\u200D\uD83D\uDC66"
+        val decoded = PreferredReaction.of(PreferredReaction(true, null, family).encode())
+
+        assertEquals(family, decoded.emoji)
+    }
+
+    @Test(expected = DecodingException::class)
+    fun testPreferredReaction_missingGlobalSetting_throwsDecodingException() {
+        val map = HashMap<io.olvid.engine.datatypes.DictionaryKey, Encoded>()
+        map[io.olvid.engine.datatypes.DictionaryKey(PreferredReaction.EMOJI)] = Encoded.of("\uD83D\uDC4D")
+        PreferredReaction.of(Encoded.of(map))
+    }
+
+    @Test(expected = DecodingException::class)
+    fun testPreferredReaction_notGlobalWithoutDiscussionIdentifier_throwsDecodingException() {
+        // globalSetting == false means the change targets one discussion, so the
+        // discussion identifier is mandatory: an atom without it is undeliverable.
+        val map = HashMap<io.olvid.engine.datatypes.DictionaryKey, Encoded>()
+        map[io.olvid.engine.datatypes.DictionaryKey(PreferredReaction.GLOBAL_SETTING)] = Encoded.of(false)
+        map[io.olvid.engine.datatypes.DictionaryKey(PreferredReaction.EMOJI)] = Encoded.of("\uD83D\uDC4D")
+        PreferredReaction.of(Encoded.of(map))
+    }
+
+    @Test(expected = DecodingException::class)
+    fun testPreferredReaction_notGlobalWithoutDiscussionIdentifier_throwsThroughObvSyncAtomOf() {
+        // the same guard must reject the payload when nested inside a full atom
+        val inconsistent = ObvSyncAtom.createPreferredReaction(
+            DiscussionIdentifier(DiscussionIdentifier.CONTACT, bytesContactIdentity),
+            "\uD83D\uDC4D",
+        ).preferredReaction!!
+        val map = inconsistent.encode().decodeDictionary()
+        map.remove(io.olvid.engine.datatypes.DictionaryKey(PreferredReaction.DISCUSSION_IDENTIFIER))
+        ObvSyncAtom.of(
+            Encoded.of(
+                arrayOf(
+                    Encoded.of(ObvSyncAtom.TYPE_PREFERRED_REACTION_CHANGE.toLong()),
+                    Encoded.of(map),
+                )
+            )
+        )
+    }
+
+    @Test
+    fun testPreferredReaction_globalWithDiscussionIdentifier_decodesAndIgnoresIt() {
+        // a peer may send both; globalSetting wins and the discussion identifier is dropped
+        val map = HashMap<io.olvid.engine.datatypes.DictionaryKey, Encoded>()
+        map[io.olvid.engine.datatypes.DictionaryKey(PreferredReaction.GLOBAL_SETTING)] = Encoded.of(true)
+        map[io.olvid.engine.datatypes.DictionaryKey(PreferredReaction.DISCUSSION_IDENTIFIER)] =
+            DiscussionIdentifier(DiscussionIdentifier.CONTACT, bytesContactIdentity).encode()!!
+        map[io.olvid.engine.datatypes.DictionaryKey(PreferredReaction.EMOJI)] = Encoded.of("\uD83D\uDC4D")
+
+        val decoded = PreferredReaction.of(Encoded.of(map))
+
+        assertTrue(decoded.globalSetting)
+        assertNull("a discussionIdentifier must be ignored when globalSetting is true", decoded.discussionIdentifier)
+        assertEquals("\uD83D\uDC4D", decoded.emoji)
+    }
+
+    @Test
+    fun testPreferredReaction_unknownKeyIsIgnored() {
+        // forward compatibility: an unknown key added by a newer peer must not break decoding
+        val map = PreferredReaction(true, null, "\uD83D\uDC4D").encode().decodeDictionary()
+        map[io.olvid.engine.datatypes.DictionaryKey("zz")] = Encoded.of(42L)
+
+        val decoded = PreferredReaction.of(Encoded.of(map))
+
+        assertTrue(decoded.globalSetting)
+        assertEquals("\uD83D\uDC4D", decoded.emoji)
     }
 }
