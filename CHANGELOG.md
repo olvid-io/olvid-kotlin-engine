@@ -1,7 +1,13 @@
+# Version 1.2.2
+2026-10-01
+
+- Added new type of ObvSyncAtom `TYPE_UNREAD_DISCUSSIONS_CHANGE`.
+- Fix a memory leak in the `SecureFile` implementation.
+
 # Version 1.2.1
 2026-09-21
 
-- Added a new type of ObvSyncAtom `TYPE_PREFERRED_REACTION_CHANGE`
+- Added a new type of ObvSyncAtom `TYPE_PREFERRED_REACTION_CHANGE`.
 
 # Version 1.2.0
 2026-09-01

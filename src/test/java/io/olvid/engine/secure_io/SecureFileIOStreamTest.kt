@@ -24,14 +24,17 @@ import io.olvid.engine.crypto.PRNG.Companion.PRNG_HMAC_SHA256
 import io.olvid.engine.crypto.Suite
 import io.olvid.engine.secure_io.SecureFileOutputStream.AccessMode
 import java.io.ByteArrayOutputStream
+import com.sun.management.UnixOperatingSystemMXBean
 import java.io.File
 import java.io.FileOutputStream
+import java.lang.management.ManagementFactory
 import java.math.BigInteger
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -49,6 +52,19 @@ class SecureFileIOStreamTest {
 
     private fun rngBigInt(bound: BigInteger): BigInteger =
         Suite.getPRNGService(PRNG_HMAC_SHA256).bigInt(bound)
+
+    // Splits total into 1 to 30 random lengths summing to it. bigInt(0) never returns, so stop
+    // drawing once nothing is left.
+    private fun randomSplit(total: Int): List<Int> {
+        val parts = rngBigInt(BigInteger("30")).toInt() + 1
+        var remaining = total
+        return List(parts) { i ->
+            val length = if (i == parts - 1 || remaining == 0) remaining
+            else rngBigInt(BigInteger.valueOf(remaining.toLong())).toInt()
+            remaining -= length
+            length
+        }
+    }
 
     @get:Rule
     val testingFolder = TemporaryFolder()
@@ -232,24 +248,15 @@ class SecureFileIOStreamTest {
 
         val secureFileRead = SecureFile(testingFolder.root.path, Logger.toHexString(fileName))
 
-        val readNumber = rngBigInt(BigInteger("30"))
-        val readLengthValues = arrayOfNulls<BigInteger>(readNumber.toInt())
-        var max = BigInteger(bytesToWrite.size.toString())
-        for (i in 0 until readLengthValues.size - 1) {
-            readLengthValues[i] = rngBigInt(max)
-            max = max.subtract(readLengthValues[i]!!)
-        }
-        if (max > BigInteger.ZERO && readLengthValues.isNotEmpty()) {
-            readLengthValues[readLengthValues.size - 1] = max
-        }
+        val readLengthValues = randomSplit(bytesToWrite.size)
         // result
         val resultBuf = ByteArray(bytesToWrite.size)
         var off = 0
         // read loop
         SecureFileInputStream(secureFileRead).use { secureFileInputStream ->
             for (readLengthValue in readLengthValues) {
-                secureFileInputStream.read(resultBuf, off, readLengthValue!!.toInt())
-                off += readLengthValue.toInt()
+                secureFileInputStream.read(resultBuf, off, readLengthValue)
+                off += readLengthValue
             }
         }
         assertArrayEquals(bytesToWrite, resultBuf)
@@ -270,30 +277,15 @@ class SecureFileIOStreamTest {
         val secureFileWrite = SecureFile(testingFolder.root.path, Logger.toHexString(fileName))
 
         // defining a random number of write calls
-        val writeNumber = rngBigInt(BigInteger("30"))
-
-        // all the bytes length values that will be written will be stored here
-        val writeLengthValues = arrayOfNulls<BigInteger>(writeNumber.toInt())
-
-        var maxBytesWrite = BigInteger(fileSize.toInt().toString())
-
-        // defining length values for every write call, leaving an extra slot for the remainder
-        for (i in 0 until writeLengthValues.size - 1) {
-            writeLengthValues[i] = rngBigInt(maxBytesWrite)
-            maxBytesWrite = maxBytesWrite.subtract(writeLengthValues[i]!!)
-        }
-        // if we didn't hit the max, assign it to the dedicated last slot
-        if (maxBytesWrite > BigInteger.ZERO && writeLengthValues.isNotEmpty()) {
-            writeLengthValues[writeLengthValues.size - 1] = maxBytesWrite
-        }
+        val writeLengthValues = randomSplit(fileSize.toInt())
 
         var writeOff = 0
         for (writeLengthValue in writeLengthValues) {
             SecureFileOutputStream(secureFileWrite, AccessMode.TRUNCATE, writeOff.toLong()).use { discreteSecureOutputStream ->
-                val toWrite = rngBytes(writeLengthValue!!.toInt())
+                val toWrite = rngBytes(writeLengthValue)
                 bytesToWrite.writeBytes(toWrite)
                 discreteSecureOutputStream.write(toWrite)
-                writeOff += writeLengthValue.toInt()
+                writeOff += writeLengthValue
             }
         }
 
@@ -305,19 +297,7 @@ class SecureFileIOStreamTest {
         val secureFileRead = SecureFile(testingFolder.root.path, Logger.toHexString(fileName))
 
         // same mechanism to generate a random number of read calls with random read length per call
-        val readNumber = rngBigInt(BigInteger("30"))
-
-        val readLengthValues = arrayOfNulls<BigInteger>(readNumber.toInt())
-
-        var max = BigInteger(bytesToWrite.toByteArray().size.toString())
-        for (i in 0 until readLengthValues.size - 1) {
-            readLengthValues[i] = rngBigInt(max)
-            max = max.subtract(readLengthValues[i]!!)
-        }
-
-        if (max > BigInteger.ZERO && readLengthValues.isNotEmpty()) {
-            readLengthValues[readLengthValues.size - 1] = max
-        }
+        val readLengthValues = randomSplit(bytesToWrite.toByteArray().size)
 
         SecureFileInputStream(secureFileRead).use { secureFileInputStream ->
             // result
@@ -325,8 +305,8 @@ class SecureFileIOStreamTest {
             var off = 0
             // read loop
             for (readLengthValue in readLengthValues) {
-                secureFileInputStream.read(resultBuf, off, readLengthValue!!.toInt())
-                off += readLengthValue.toInt()
+                secureFileInputStream.read(resultBuf, off, readLengthValue)
+                off += readLengthValue
             }
             assertArrayEquals(bytesToWrite.toByteArray(), resultBuf)
         }
@@ -439,5 +419,85 @@ class SecureFileIOStreamTest {
             assertTrue(file.isDirectory)
             assertTrue(dirNames.contains(file.name))
         }
+    }
+
+    private fun writeSecureFile(directory: SecureFile, input: ByteArray): SecureFile {
+        val secureFile = SecureFile(directory.fsNameFile!!.absolutePath, Logger.toHexString(rngBytes(16)))
+        SecureFileOutputStream(secureFile).use { secureFileOutputStream ->
+            secureFileOutputStream.write(input)
+        }
+        return secureFile
+    }
+
+    // A leaked handle only breaks delete() on Windows; counting descriptors catches it everywhere else.
+    private fun openFileDescriptorCount(): Long {
+        val os = ManagementFactory.getOperatingSystemMXBean()
+        assumeTrue(os is UnixOperatingSystemMXBean)
+        return (os as UnixOperatingSystemMXBean).openFileDescriptorCount
+    }
+
+    /**
+     * Every caller lists a directory and then deletes some of what it listed, so listDirectory()
+     * must not keep a handle open on the files it returns: on Windows that makes delete() fail.
+     */
+    @Test
+    fun test_list_directory_then_delete() {
+        val directory = SecureFile(directoryListingTestingFolder.newFolder("deletable").absolutePath)
+        val input = rngBytes(1000)
+        repeat(5) { writeSecureFile(directory, input) }
+
+        val directoryListingResult = directory.listDirectory()!!
+        assertEquals(5, directoryListingResult.managedFileList.size)
+
+        for (secureFile in directoryListingResult.managedFileList) {
+            assertTrue("could not delete " + secureFile.plainNameFile.name, secureFile.delete())
+        }
+
+        assertEquals(0, directory.listDirectory()!!.managedFileList.size)
+    }
+
+    /**
+     * A file whose header does not verify must be listed as a plain file, not abort the whole
+     * listing: an aborted listing left callers cleaning nothing at all.
+     */
+    @Test
+    fun test_list_directory_with_unverifiable_header() {
+        val directory = SecureFile(directoryListingTestingFolder.newFolder("corrupted").absolutePath)
+        val input = rngBytes(1000)
+
+        val good = writeSecureFile(directory, input)
+
+        // A valid secure file moved to another hashed name: its header still decodes, but the
+        // name MAC no longer matches, which is the mismatch that used to throw out of the loop.
+        val stray = writeSecureFile(directory, input)
+        val renamedStray = File(directory.fsNameFile!!.absolutePath, Logger.toHexString(rngBytes(32)))
+        assertTrue(stray.fsNameFile!!.renameTo(renamedStray))
+
+        val directoryListingResult = directory.listDirectory()
+
+        assertNotNull(directoryListingResult)
+        assertEquals(1, directoryListingResult!!.managedFileList.size)
+        assertEquals(good.plainNameFile.name, directoryListingResult.managedFileList[0].plainNameFile.name)
+        assertTrue(directoryListingResult.fileList.contains(renamedStray))
+    }
+
+    @Test
+    fun test_header_reads_release_their_handles() {
+        val directory = SecureFile(directoryListingTestingFolder.newFolder("handles").absolutePath)
+        val input = rngBytes(1000)
+        val secureFiles = List(5) { writeSecureFile(directory, input) }
+        val corrupted = writeSecureFile(directory, input)
+        FileOutputStream(corrupted.fsNameFile!!).use { it.write(rngBytes(1000)) }
+
+        val before = openFileDescriptorCount()
+        repeat(20) {
+            directory.listDirectory()
+            secureFiles.forEach { assertTrue(it.canRead()) }
+            assertFalse(corrupted.canRead())
+            runCatching { SecureFileInputStream(corrupted) }
+        }
+        // other tests' leftovers may get closed meanwhile, so only an increase is a leak
+        val after = openFileDescriptorCount()
+        assertTrue("leaked ${after - before} file descriptors", after <= before)
     }
 }

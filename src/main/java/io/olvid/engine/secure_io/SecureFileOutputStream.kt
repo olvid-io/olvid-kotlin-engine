@@ -130,9 +130,12 @@ class SecureFileOutputStream @Throws(IOException::class) constructor(
 
     @Throws(IOException::class)
     override fun close() {
-        // flush kept buffer and close fileAccessor
-        flush()
-        fileAccessor.close()
+        // flush kept buffer and close fileAccessor, even if the flush fails
+        try {
+            flush()
+        } finally {
+            fileAccessor.close()
+        }
     }
 
     @Throws(IOException::class)

@@ -45,8 +45,13 @@ class SecureFileInputStream(associatedFile: SecureFile?) : EngineInputStream() {
         }
         associatedSecureFile = associatedFile
         fileAccessor = RandomAccessFile(fsFile, "r")
-        secureFileHeader = SecureIOHelper.getSecureFileHeaderFromFS(fileAccessor, fsFile.name, false)
-            ?: throw RuntimeException()
+        // nobody can close a stream whose constructor threw
+        secureFileHeader = runCatching {
+            SecureIOHelper.getSecureFileHeaderFromFS(fileAccessor, fsFile.name, false) ?: throw RuntimeException()
+        }.getOrElse { e ->
+            fileAccessor.close()
+            throw e
+        }
     }
 
     @Throws(IOException::class)

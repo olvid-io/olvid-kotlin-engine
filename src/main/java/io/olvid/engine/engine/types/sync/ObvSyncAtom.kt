@@ -43,7 +43,7 @@ class ObvSyncAtom private constructor(
     val isAppSyncItem: Boolean
         get() {
             return when (syncType) {
-                TYPE_CONTACT_NICKNAME_CHANGE, TYPE_GROUP_V1_NICKNAME_CHANGE, TYPE_GROUP_V2_NICKNAME_CHANGE, TYPE_CONTACT_PERSONAL_NOTE_CHANGE, TYPE_GROUP_V1_PERSONAL_NOTE_CHANGE, TYPE_GROUP_V2_PERSONAL_NOTE_CHANGE, TYPE_OWN_PROFILE_NICKNAME_CHANGE, TYPE_CONTACT_CUSTOM_HUE_CHANGE, TYPE_CONTACT_SEND_READ_RECEIPT_CHANGE, TYPE_GROUP_V1_SEND_READ_RECEIPT_CHANGE, TYPE_GROUP_V2_SEND_READ_RECEIPT_CHANGE, TYPE_PINNED_DISCUSSIONS_CHANGE, TYPE_SETTING_DEFAULT_SEND_READ_RECEIPTS, TYPE_SETTING_AUTO_JOIN_GROUPS, TYPE_BOOKMARKED_MESSAGE_CHANGE, TYPE_ARCHIVED_DISCUSSIONS_CHANGE, TYPE_DISCUSSIONS_MUTE_CHANGE, TYPE_SETTING_LAST_RATING, TYPE_SETTING_UNARCHIVE_ON_NOTIFICATION, TYPE_STOP_SUGGESTING_CONTACT, TYPE_PREFERRED_REACTION_CHANGE -> true
+                TYPE_CONTACT_NICKNAME_CHANGE, TYPE_GROUP_V1_NICKNAME_CHANGE, TYPE_GROUP_V2_NICKNAME_CHANGE, TYPE_CONTACT_PERSONAL_NOTE_CHANGE, TYPE_GROUP_V1_PERSONAL_NOTE_CHANGE, TYPE_GROUP_V2_PERSONAL_NOTE_CHANGE, TYPE_OWN_PROFILE_NICKNAME_CHANGE, TYPE_CONTACT_CUSTOM_HUE_CHANGE, TYPE_CONTACT_SEND_READ_RECEIPT_CHANGE, TYPE_GROUP_V1_SEND_READ_RECEIPT_CHANGE, TYPE_GROUP_V2_SEND_READ_RECEIPT_CHANGE, TYPE_PINNED_DISCUSSIONS_CHANGE, TYPE_SETTING_DEFAULT_SEND_READ_RECEIPTS, TYPE_SETTING_AUTO_JOIN_GROUPS, TYPE_BOOKMARKED_MESSAGE_CHANGE, TYPE_ARCHIVED_DISCUSSIONS_CHANGE, TYPE_DISCUSSIONS_MUTE_CHANGE, TYPE_SETTING_LAST_RATING, TYPE_SETTING_UNARCHIVE_ON_NOTIFICATION, TYPE_STOP_SUGGESTING_CONTACT, TYPE_PREFERRED_REACTION_CHANGE, TYPE_UNREAD_DISCUSSIONS_CHANGE -> true
 
                 TYPE_TRUST_CONTACT_DETAILS, TYPE_TRUST_GROUP_V1_DETAILS, TYPE_TRUST_GROUP_V2_DETAILS -> false
                 else -> false
@@ -157,7 +157,7 @@ class ObvSyncAtom private constructor(
                 }
             }
 
-            TYPE_PINNED_DISCUSSIONS_CHANGE, TYPE_ARCHIVED_DISCUSSIONS_CHANGE -> {
+            TYPE_PINNED_DISCUSSIONS_CHANGE, TYPE_ARCHIVED_DISCUSSIONS_CHANGE, TYPE_UNREAD_DISCUSSIONS_CHANGE -> {
                 val encodedDiscussionIdentifiers = ArrayList<Encoded>()
                 for (discussionIdentifier in discussionIdentifiers!!) {
                     encodedDiscussionIdentifiers.add(discussionIdentifier.encode()!!)
@@ -434,6 +434,7 @@ class ObvSyncAtom private constructor(
         const val TYPE_SETTING_LAST_RATING: Int = 21
         const val TYPE_STOP_SUGGESTING_CONTACT: Int = 22
         const val TYPE_PREFERRED_REACTION_CHANGE: Int = 23
+        const val TYPE_UNREAD_DISCUSSIONS_CHANGE: Int = 24
 
         @JvmStatic @Throws(DecodingException::class)
         fun createContactNicknameChange(
@@ -682,6 +683,17 @@ class ObvSyncAtom private constructor(
             )
         }
 
+        @JvmStatic fun createUnreadDiscussionsChange(
+            discussionIdentifiers: List<DiscussionIdentifier>,
+            unread: Boolean
+        ): ObvSyncAtom {
+            return ObvSyncAtom(
+                TYPE_UNREAD_DISCUSSIONS_CHANGE,
+                booleanValue = unread,
+                discussionIdentifiers = discussionIdentifiers,
+            )
+        }
+
         @JvmStatic @Throws(DecodingException::class)
         fun of(encoded: Encoded): ObvSyncAtom {
             val encodeds: Array<Encoded> = encoded.decodeList()
@@ -905,6 +917,20 @@ class ObvSyncAtom private constructor(
                         syncType,
                         preferredReaction = PreferredReaction.of(encodeds[1])
                     )
+                }
+
+                TYPE_UNREAD_DISCUSSIONS_CHANGE -> {
+                    if (encodeds.size == 3) {
+                        val discussionIdentifiers: MutableList<DiscussionIdentifier> = ArrayList()
+                        for (encodedDiscussionIdentifier in encodeds[1].decodeList()) {
+                            discussionIdentifiers.add(DiscussionIdentifier.of(encodedDiscussionIdentifier))
+                        }
+                        return ObvSyncAtom(
+                            syncType,
+                            booleanValue = encodeds[2].decodeBoolean(),
+                            discussionIdentifiers = discussionIdentifiers,
+                        )
+                    }
                 }
             }
             throw DecodingException()

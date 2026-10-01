@@ -41,7 +41,6 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
-import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Test
 import java.util.UUID
@@ -54,12 +53,12 @@ import java.util.UUID
  * corrupts sync state. A Kotlin migration that renumbers any constant breaks real user data.
  *
  * Groups:
- *  1. Wire-format TYPE_* constant pin — 24 tests
- *  2. Static factory field population contracts — 29 tests
- *  3. isAppSyncItem() dispatch — 24 tests
- *  4. Encode/decode round-trips for the representative types — 10 tests
- *  5. of() error paths — 3 tests
- *  6. encode() layout pin — 4 tests
+ *  1. Wire-format TYPE_* constant pin — 25 tests
+ *  2. Static factory field population contracts — 30 tests
+ *  3. isAppSyncItem() dispatch — 25 tests
+ *  4. Encode/decode round-trips for the representative types — 13 tests
+ *  5. of() error paths — 5 tests
+ *  6. encode() layout pin — 5 tests
  *  7. Wire-format golden-hex pin — 1 test
  *  8. DiscussionIdentifier nested class — 6 tests
  *  9. MessageIdentifier nested class — 3 tests
@@ -68,8 +67,8 @@ import java.util.UUID
  * 12. getStringValue() trim/null contract — 3 tests
  * 13. PreferredReaction nested class — 10 tests
  *
- * Groups 1 to 6 cover every TYPE_* constant, including the two most recent ones
- * (TYPE_STOP_SUGGESTING_CONTACT and TYPE_PREFERRED_REACTION_CHANGE).
+ * Groups 1 to 6 cover every TYPE_* constant, including the three most recent ones
+ * (TYPE_STOP_SUGGESTING_CONTACT, TYPE_PREFERRED_REACTION_CHANGE and TYPE_UNREAD_DISCUSSIONS_CHANGE).
  */
 class ObvSyncAtomTest {
 
@@ -206,6 +205,9 @@ class ObvSyncAtomTest {
 
     @Test fun testTypeConstant_PREFERRED_REACTION_CHANGE_is23() =
         assertEquals(23, ObvSyncAtom.TYPE_PREFERRED_REACTION_CHANGE)
+
+    @Test fun testTypeConstant_UNREAD_DISCUSSIONS_CHANGE_is24() =
+        assertEquals(24, ObvSyncAtom.TYPE_UNREAD_DISCUSSIONS_CHANGE)
 
     // ─── Group 2: Static factory field population contracts ───────────────────
     //
@@ -546,6 +548,26 @@ class ObvSyncAtomTest {
         assertNull(discussionReset.emoji)
     }
 
+    @Test
+    fun testFactory_createUnreadDiscussionsChange_populatesListAndBoolean() {
+        val discussionIdentifiers = listOf(
+            DiscussionIdentifier(DiscussionIdentifier.CONTACT, bytesContactIdentity),
+            DiscussionIdentifier(DiscussionIdentifier.GROUP_V2, bytesGroupV2Identifier),
+        )
+        val atom = ObvSyncAtom.createUnreadDiscussionsChange(discussionIdentifiers, true)
+        assertEquals(ObvSyncAtom.TYPE_UNREAD_DISCUSSIONS_CHANGE, atom.syncType)
+        assertEquals(discussionIdentifiers, atom.discussionIdentifiers)
+        assertEquals(true, atom.booleanValue)
+        assertNull(atom.contactIdentity)
+        assertNull(atom.bytesGroupOwnerAndUid)
+        assertNull(atom.bytesGroupIdentifier)
+        assertNull(atom.getStringValue())
+        assertNull(atom.integerValue)
+        assertNull(atom.messageIdentifier)
+        assertNull(atom.muteNotification)
+        assertNull(atom.preferredReaction)
+    }
+
     // ─── Group 3: isAppSyncItem() dispatch ────────────────────────────────────
     //
     // Engine-level types (TRUST_*) must return false; all app types must return true.
@@ -658,6 +680,13 @@ class ObvSyncAtomTest {
         assertTrue(ObvSyncAtom.createPreferredReaction(null, "\uD83D\uDC4D").isAppSyncItem)
         val id = DiscussionIdentifier(DiscussionIdentifier.CONTACT, bytesContactIdentity)
         assertTrue(ObvSyncAtom.createPreferredReaction(id, "\uD83D\uDC4D").isAppSyncItem)
+    }
+
+    @Test
+    fun testIsAppSyncItem_unreadDiscussionsChange_isTrue() {
+        val id = DiscussionIdentifier(DiscussionIdentifier.CONTACT, bytesContactIdentity)
+        assertTrue(ObvSyncAtom.createUnreadDiscussionsChange(listOf(id), true).isAppSyncItem)
+        assertTrue(ObvSyncAtom.createUnreadDiscussionsChange(listOf(id), false).isAppSyncItem)
     }
 
     // ─── Group 4: Encode/decode round-trips ───────────────────────────────────
@@ -796,6 +825,50 @@ class ObvSyncAtomTest {
         assertNull("a null emoji must stay null across a round-trip", reaction.emoji)
     }
 
+    @Test
+    fun testRoundTrip_unreadDiscussionsChange_mixedDiscussionIdentifierTypes() {
+        // one discussion of each type, in a non-trivial order that must be preserved
+        val cases = listOf(
+            DiscussionIdentifier.GROUP_V1 to bytesGroupOwnerAndUid,
+            DiscussionIdentifier.CONTACT to bytesContactIdentity,
+            DiscussionIdentifier.GROUP_V2 to bytesGroupV2Identifier,
+            DiscussionIdentifier.CONTACT to bytesContactIdentity2,
+        )
+        val atom = ObvSyncAtom.createUnreadDiscussionsChange(cases.map { (type, bytes) -> DiscussionIdentifier(type, bytes) }, true)
+        val decoded = ObvSyncAtom.of(atom.encode()!!)
+
+        assertEquals(ObvSyncAtom.TYPE_UNREAD_DISCUSSIONS_CHANGE, decoded.syncType)
+        assertEquals(true, decoded.booleanValue)
+        val decodedDiscussionIdentifiers = decoded.discussionIdentifiers
+        assertNotNull(decodedDiscussionIdentifiers)
+        assertEquals(cases.size, decodedDiscussionIdentifiers!!.size)
+        cases.forEachIndexed { i, (type, bytes) ->
+            assertEquals(type, decodedDiscussionIdentifiers[i].type)
+            assertArrayEquals(bytes, decodedDiscussionIdentifiers[i].bytesDiscussionIdentifier)
+        }
+    }
+
+    @Test
+    fun testRoundTrip_unreadDiscussionsChange_markAsRead() {
+        val id = DiscussionIdentifier(DiscussionIdentifier.GROUP_V2, bytesGroupV2Identifier)
+        val decoded = ObvSyncAtom.of(ObvSyncAtom.createUnreadDiscussionsChange(listOf(id), false).encode()!!)
+
+        assertEquals(ObvSyncAtom.TYPE_UNREAD_DISCUSSIONS_CHANGE, decoded.syncType)
+        // false means "mark as read" and must not be lost or turned into null
+        assertEquals(false, decoded.booleanValue)
+        assertEquals(1, decoded.discussionIdentifiers!!.size)
+        assertArrayEquals(bytesGroupV2Identifier, decoded.discussionIdentifiers!![0].bytesDiscussionIdentifier)
+    }
+
+    @Test
+    fun testRoundTrip_unreadDiscussionsChange_emptyList() {
+        val decoded = ObvSyncAtom.of(ObvSyncAtom.createUnreadDiscussionsChange(emptyList(), true).encode()!!)
+
+        assertEquals(ObvSyncAtom.TYPE_UNREAD_DISCUSSIONS_CHANGE, decoded.syncType)
+        assertEquals(emptyList<DiscussionIdentifier>(), decoded.discussionIdentifiers)
+        assertEquals(true, decoded.booleanValue)
+    }
+
     // ─── Group 5: of() error paths ────────────────────────────────────────────
 
     @Test(expected = DecodingException::class)
@@ -815,6 +888,22 @@ class ObvSyncAtomTest {
     fun testOf_negativeSyncType_throwsDecodingException() {
         val negType = Encoded.of(arrayOf(Encoded.of(-1L)))
         ObvSyncAtom.of(negType)
+    }
+
+    @Test(expected = DecodingException::class)
+    fun testOf_unreadDiscussionsChangeWithoutPayload_throwsDecodingException() {
+        val truncated = Encoded.of(arrayOf(Encoded.of(ObvSyncAtom.TYPE_UNREAD_DISCUSSIONS_CHANGE.toLong())))
+        ObvSyncAtom.of(truncated)
+    }
+
+    @Test(expected = DecodingException::class)
+    fun testOf_unreadDiscussionsChangeWithoutBoolean_throwsDecodingException() {
+        val id = DiscussionIdentifier(DiscussionIdentifier.CONTACT, bytesContactIdentity)
+        val truncated = Encoded.of(arrayOf(
+            Encoded.of(ObvSyncAtom.TYPE_UNREAD_DISCUSSIONS_CHANGE.toLong()),
+            Encoded.of(arrayOf(id.encode()!!)),
+        ))
+        ObvSyncAtom.of(truncated)
     }
 
     // ─── Group 6: encode() layout pin ─────────────────────────────────────────
@@ -867,6 +956,26 @@ class ObvSyncAtomTest {
         )
         // the whole payload is a single encoded dictionary
         assertNotNull(encodeds[1].decodeDictionary())
+    }
+
+    @Test
+    fun testEncodeLayout_unreadDiscussionsChange_has3Elements() {
+        val atom = ObvSyncAtom.createUnreadDiscussionsChange(listOf(
+            DiscussionIdentifier(DiscussionIdentifier.CONTACT, bytesContactIdentity),
+            DiscussionIdentifier(DiscussionIdentifier.GROUP_V2, bytesGroupV2Identifier),
+        ), false)
+        val encodeds = atom.encode()!!.decodeList()
+        // [0] = syncType, [1] = list of DiscussionIdentifier, [2] = unread boolean
+        assertEquals(3, encodeds.size)
+        assertEquals(
+            ObvSyncAtom.TYPE_UNREAD_DISCUSSIONS_CHANGE.toLong(),
+            encodeds[0].decodeLong(),
+        )
+        val encodedDiscussionIdentifiers = encodeds[1].decodeList()
+        assertEquals(2, encodedDiscussionIdentifiers.size)
+        assertEquals(DiscussionIdentifier.CONTACT, DiscussionIdentifier.of(encodedDiscussionIdentifiers[0]).type)
+        assertEquals(DiscussionIdentifier.GROUP_V2, DiscussionIdentifier.of(encodedDiscussionIdentifiers[1]).type)
+        assertFalse(encodeds[2].decodeBoolean())
     }
 
     // ─── Group 7: Wire-format golden-hex pin ──────────────────────────────────

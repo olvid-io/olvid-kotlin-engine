@@ -76,24 +76,25 @@ class SecureFile private constructor(plainFile: File?) : EngineFile {
 
                 if (fsNameFile!!.renameTo(targetFile)) {
                     Logger.d("Renamed file to $newDir/$newName successfully....updating header ")
-                    val fileAccessor = RandomAccessFile(targetFile, "rw")
-                    // get header from FS
-                    val fileHeader = SecureIOHelper.getSecureFileHeaderFromFS(fileAccessor, targetFile.name, false)
-                    if (fileHeader != null) {
-                        // set new encrypted file name in header object
-                        fileHeader.encryptedFileName = SecureIOHelper.authEnc.encrypt(
-                            keys.fileNameEncryptionKeys!!.second,
-                            newName.toByteArray(StandardCharsets.UTF_8),
-                            SecureIOHelper.prng
-                        ).bytes
-                        // rebuild header with updated values
-                        val newHeader = fileHeader.buildHeaderBlock(keys.fileNameEncryptionKeys!!.second)
-                        fileAccessor.seek(0)
-                        fileAccessor.write(newHeader)
-                        fileAccessor.close()
-                        fsNameFile = File(targetFile.parent, newName)
-                        Logger.d("Updated header successfully")
-                        return true
+                    // closed on every path: a leaked handle blocks any later delete on Windows
+                    RandomAccessFile(targetFile, "rw").use { fileAccessor ->
+                        // get header from FS
+                        val fileHeader = SecureIOHelper.getSecureFileHeaderFromFS(fileAccessor, targetFile.name, false)
+                        if (fileHeader != null) {
+                            // set new encrypted file name in header object
+                            fileHeader.encryptedFileName = SecureIOHelper.authEnc.encrypt(
+                                keys.fileNameEncryptionKeys!!.second,
+                                newName.toByteArray(StandardCharsets.UTF_8),
+                                SecureIOHelper.prng
+                            ).bytes
+                            // rebuild header with updated values
+                            val newHeader = fileHeader.buildHeaderBlock(keys.fileNameEncryptionKeys!!.second)
+                            fileAccessor.seek(0)
+                            fileAccessor.write(newHeader)
+                            fsNameFile = File(targetFile.parent, newName)
+                            Logger.d("Updated header successfully")
+                            return true
+                        }
                     }
                 } else {
                     Logger.d("Couldn't update header on FS")
@@ -123,9 +124,17 @@ class SecureFile private constructor(plainFile: File?) : EngineFile {
                     directoryListingResult.dirList.add(childFile)
                     continue
                 }
-                val randomAccessFile = RandomAccessFile(childFile, "r")
-                // try to read header
-                val secureFileHeader = SecureIOHelper.getSecureFileHeaderFromFS(randomAccessFile, child, true)
+                // callers list then delete: an open handle makes delete() fail on Windows
+                val secureFileHeader = runCatching {
+                    RandomAccessFile(childFile, "r").use { randomAccessFile ->
+                        SecureIOHelper.getSecureFileHeaderFromFS(randomAccessFile, child, true)
+                    }
+                }.getOrElse { e ->
+                    if (e !is IOException) throw e
+                    // an unreadable header must not abort the whole listing
+                    Logger.d("Could not read a secure header for $child, listing it as a plain file")
+                    null
+                }
                 if (secureFileHeader != null) {
                     val secureFile = SecureFile(
                         plainNameFile.absolutePath + File.separator + String(secureFileHeader.plainFileName)
@@ -150,14 +159,14 @@ class SecureFile private constructor(plainFile: File?) : EngineFile {
     }
 
     override fun canRead(): Boolean {
-        var secureFileHeader: SecureFileHeader?
-        try {
-            val randomAccessFile = RandomAccessFile(fsNameFile, "r")
-            // try to read header
-            secureFileHeader = SecureIOHelper.getSecureFileHeaderFromFS(randomAccessFile, fsNameFile!!.name, true)
-        } catch (_: IOException) {
+        val secureFileHeader = runCatching {
+            RandomAccessFile(fsNameFile, "r").use { randomAccessFile ->
+                SecureIOHelper.getSecureFileHeaderFromFS(randomAccessFile, fsNameFile!!.name, true)
+            }
+        }.getOrElse { e ->
+            if (e !is IOException) throw e
             Logger.d("couldn't read header of file : " + plainNameFile.name)
-            secureFileHeader = null
+            null
         }
         return secureFileHeader != null
     }
