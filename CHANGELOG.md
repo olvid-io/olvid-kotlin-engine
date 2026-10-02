@@ -1,3 +1,8 @@
+# Version 1.2.3
+2026-10-02
+
+- Fix an issue with Keycloak blobs containing duplicate identities.
+
 # Version 1.2.2
 2026-10-01
 

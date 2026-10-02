@@ -692,8 +692,7 @@ class ContactGroupV2 : ObvDatabase {
 
         // build a hashmap of group members for easier access
         val groupMembersMap = HashMap<Identity?, KeycloakGroupMemberAndPermissions?>()
-        for (groupMemberAndPermissions in keycloakGroupBlob.groupMembersAndPermissions ?: emptySet()) {
-            groupMemberAndPermissions ?: continue
+        for (groupMemberAndPermissions in keycloakGroupBlob.deduplicatedGroupMembersAndPermissions()) {
             val memberIdentity = Identity.of(groupMemberAndPermissions.identity!!)
             groupMembersMap.put(memberIdentity, groupMemberAndPermissions)
         }

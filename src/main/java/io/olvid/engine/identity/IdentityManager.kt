@@ -5499,8 +5499,8 @@ class IdentityManager(
             val otherMembers: MutableList<KeycloakGroupMemberAndPermissions> =
                 ArrayList<KeycloakGroupMemberAndPermissions>()
 
-            for (groupMemberAndPermissions in keycloakGroupBlob.groupMembersAndPermissions!!) {
-                if (ownedIdentity.getBytes().contentEquals(groupMemberAndPermissions!!.identity)) {
+            for (groupMemberAndPermissions in keycloakGroupBlob.deduplicatedGroupMembersAndPermissions()) {
+                if (ownedIdentity.getBytes().contentEquals(groupMemberAndPermissions.identity)) {
                     ownInvitationNonce = groupMemberAndPermissions.groupInvitationNonce
                     ownPermissions = groupMemberAndPermissions.permissions
                 } else {

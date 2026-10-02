@@ -86,7 +86,7 @@ class KeycloakGroupBlobTest {
         member.signedUserDetails = "{\"name\":\"Alice\"}"
         member.permissions = mutableListOf<String?>("send_message", "admin")
         member.groupInvitationNonce = ByteArray(16) { 0xAB.toByte() }
-        blob.groupMembersAndPermissions = HashSet<KeycloakGroupMemberAndPermissions?>().also { it.add(member) }
+        blob.groupMembersAndPermissions = mutableListOf<KeycloakGroupMemberAndPermissions?>().also { it.add(member) }
         blob.serializedSharedSettings = "{\"foo\":\"bar\"}"
         blob.timestamp = 1700000000000L
         return blob
@@ -564,5 +564,45 @@ class KeycloakGroupBlobTest {
             memberIdentityBytes,
             member!!.identity
         )
+    }
+
+    // ── Duplicate identities (android-client#1382) ───────────────────────────
+
+    private fun memberJson(keycloakUserId: String, identity: ByteArray, nonce: ByteArray, permissions: String): String {
+        val b64 = java.util.Base64.getEncoder()
+        return """{"id":"$keycloakUserId","identity":"${b64.encodeToString(identity)}","signature":"sig-$keycloakUserId","permissions":[$permissions],"nonce":"${b64.encodeToString(nonce)}"}"""
+    }
+
+    @Test
+    fun testDuplicateIdentityKeepsFirstOccurrence() {
+        val alice = ByteArray(20) { 1 }
+        val bob = ByteArray(20) { 2 }
+        val firstAliceNonce = ByteArray(16) { 0x11 }
+        val json = """{"gm_perms":[""" +
+                memberJson("alice-1", alice, firstAliceNonce, "\"admin\"") + "," +
+                memberJson("bob", bob, ByteArray(16) { 0x22 }, "") + "," +
+                memberJson("alice-2", alice, ByteArray(16) { 0x33 }, "\"send_message\"") +
+                """],"timestamp":1}"""
+
+        val members = mapper.readValue(json, KeycloakGroupBlob::class.java).deduplicatedGroupMembersAndPermissions()
+
+        assertEquals(listOf("alice-1", "bob"), members.map { it.keycloakUserId })
+        assertArrayEquals(firstAliceNonce, members[0].groupInvitationNonce)
+        assertEquals(listOf<String?>("admin"), members[0].permissions)
+    }
+
+    @Test
+    fun testDuplicateIdentityChoiceDoesNotDependOnHashOrder() {
+        // with a plain HashSet, the iteration order of these ids differs from the blob order
+        val identity = ByteArray(20) { 7 }
+        val ids = (0 until 50).map { "user-${50 - it}" }
+        val json = """{"gm_perms":[""" +
+                ids.joinToString(",") { memberJson(it, identity, it.toByteArray(), "") } +
+                """],"timestamp":1}"""
+
+        val members = mapper.readValue(json, KeycloakGroupBlob::class.java).deduplicatedGroupMembersAndPermissions()
+
+        assertEquals(listOf(ids.first()), members.map { it.keycloakUserId })
+        assertArrayEquals(ids.first().toByteArray(), members[0].groupInvitationNonce)
     }
 }

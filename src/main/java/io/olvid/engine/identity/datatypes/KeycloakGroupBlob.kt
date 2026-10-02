@@ -20,7 +20,9 @@ package io.olvid.engine.identity.datatypes
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.annotation.JsonProperty
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 import io.olvid.engine.engine.types.JsonGroupDetails
+import io.olvid.engine.engine.types.ObvBytesKey
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 class KeycloakGroupBlob {
@@ -39,10 +41,21 @@ class KeycloakGroupBlob {
     @field:JsonProperty("pt")
     @JvmField var pushTopic: String? = null
 
+    // LinkedHashSet keeps the blob order, required by deduplicatedGroupMembersAndPermissions()
     @field:JsonProperty("gm_perms")
-    @JvmField var groupMembersAndPermissions: HashSet<KeycloakGroupMemberAndPermissions?>? = null
+    @JvmField var groupMembersAndPermissions: List<KeycloakGroupMemberAndPermissions?>? = null
 
     @field:JsonProperty("sss")
     @JvmField var serializedSharedSettings: String? = null
     @JvmField var timestamp: Long = 0
+
+    // Keycloak may list the same identity several times (e.g. bound to several keycloak users).
+    // Every device must keep the same entry, otherwise the invitation nonce one member signs in
+    // its group join ping does not match the one others stored for it: keep the first occurrence.
+    fun deduplicatedGroupMembersAndPermissions(): List<KeycloakGroupMemberAndPermissions> {
+        val seenIdentities = HashSet<ObvBytesKey>()
+        return groupMembersAndPermissions.orEmpty()
+            .filterNotNull()
+            .filter { seenIdentities.add(it.identity?.let { identityBytes -> ObvBytesKey(identityBytes) } ?: return@filter true) }
+    }
 }

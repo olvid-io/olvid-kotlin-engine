@@ -6904,8 +6904,8 @@ class GroupsV2Protocol(
                 }
 
                 // send a ping to all members to notify them you indeed joined the group
-                for (groupMemberAndPermissions in keycloakGroupBlob.groupMembersAndPermissions!!) {
-                    val groupMemberIdentity = Identity.of(groupMemberAndPermissions!!.identity!!)
+                for (groupMemberAndPermissions in keycloakGroupBlob.deduplicatedGroupMembersAndPermissions()) {
+                    val groupMemberIdentity = Identity.of(groupMemberAndPermissions.identity!!)
                     if (ownedIdentity.equals(groupMemberIdentity)) {
                         continue
                     }
