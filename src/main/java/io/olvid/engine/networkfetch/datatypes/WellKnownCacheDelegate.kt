@@ -37,4 +37,7 @@ interface WellKnownCacheDelegate {
 
     @Throws(NotCachedException::class)
     fun getAddressUrl(server: String?): String?
+
+    @Throws(NotCachedException::class)
+    fun getGifProxyUrl(server: String?): String?
 }

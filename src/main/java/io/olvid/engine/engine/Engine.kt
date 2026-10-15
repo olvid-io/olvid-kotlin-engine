@@ -3997,6 +3997,15 @@ class Engine(
         }
     }
 
+    override fun getGifProxyUrl(bytesOwnedIdentity: ByteArray?): String? {
+        try {
+            val ownedIdentity = Identity.of(bytesOwnedIdentity!!)
+            return fetchManager.getGifProxyUrl(ownedIdentity.server)
+        } catch (_: Exception) {
+            return null
+        }
+    }
+
 
     @Throws(Exception::class)
     override fun propagateAppSyncAtomToAllOwnedIdentitiesOtherDevicesIfNeeded(obvSyncAtom: ObvSyncAtom) {

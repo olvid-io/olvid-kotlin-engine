@@ -720,6 +720,7 @@ interface EngineAPI {
     fun queryServerWellKnown(server: String?)
     fun getOsmStyles(bytesOwnedIdentity: ByteArray?): MutableList<JsonOsmStyle>?
     fun getAddressServerUrl(bytesOwnedIdentity: ByteArray?): String?
+    fun getGifProxyUrl(bytesOwnedIdentity: ByteArray?): String?
 
     @Throws(Exception::class)
     fun propagateAppSyncAtomToAllOwnedIdentitiesOtherDevicesIfNeeded(obvSyncAtom: ObvSyncAtom)

@@ -42,7 +42,6 @@ import java.io.File
 import java.sql.ResultSet
 import java.sql.SQLException
 import java.sql.Types
-import java.util.Arrays
 import java.util.LinkedList
 import java.util.Random
 
@@ -326,10 +325,10 @@ class ContactIdentity : ObvDatabase {
         ) {
             val jsonKeycloakUserDetails =
                 identityManagerSession.identityDelegate?.verifyKeycloakIdentitySignature(
-                    identityManagerSession.session,
-                    ownedIdentity,
-                    jsonIdentityDetailsWithVersionAndPhoto.getIdentityDetails()!!
-                        .getSignedUserDetails()
+                    session = identityManagerSession.session,
+                    ownedIdentity = ownedIdentity,
+                    expectedSignedIdentity = contactIdentity,
+                    signature = jsonIdentityDetailsWithVersionAndPhoto.getIdentityDetails()?.getSignedUserDetails()
                 )
             if (jsonKeycloakUserDetails != null) {
                 // the details are properly signed --> the call to markContactAsCertifiedByOwnKeycloak() will auto-trust the new details, so we can return
@@ -1114,10 +1113,10 @@ class ContactIdentity : ObvDatabase {
 
                 val jsonKeycloakUserDetails =
                     identityManagerSession.identityDelegate?.verifyKeycloakIdentitySignature(
-                        identityManagerSession.session,
-                        ownedIdentity,
-                        jsonIdentityDetailsWithVersionAndPhoto.getIdentityDetails()!!
-                            .getSignedUserDetails()
+                        session = identityManagerSession.session,
+                        ownedIdentity = ownedIdentity,
+                        expectedSignedIdentity = contactIdentity,
+                        signature = jsonIdentityDetailsWithVersionAndPhoto.getIdentityDetails()?.getSignedUserDetails()
                     )
 
                 if (jsonKeycloakUserDetails != null) {
@@ -1757,9 +1756,10 @@ class ContactIdentity : ObvDatabase {
 
             val jsonKeycloakUserDetails =
                 identityManagerSession.identityDelegate?.verifyKeycloakIdentitySignature(
-                    identityManagerSession.session,
-                    ownedIdentity,
-                    trusted_details.jsonIdentityDetailsWithVersionAndPhoto?.getIdentityDetails()
+                    session = identityManagerSession.session,
+                    ownedIdentity = ownedIdentity,
+                    expectedSignedIdentity = contactIdentity,
+                    signature = trusted_details.jsonIdentityDetailsWithVersionAndPhoto?.getIdentityDetails()
                         ?.getSignedUserDetails()
                 )
             if (jsonKeycloakUserDetails != null) {

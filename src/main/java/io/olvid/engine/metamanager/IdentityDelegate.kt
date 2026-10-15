@@ -225,17 +225,18 @@ interface IdentityDelegate {
         signedRevocations: MutableList<String?>?
     )
 
+    fun verifyKeycloakIdentitySignature(
+        session: Session,
+        ownedIdentity: Identity,
+        expectedSignedIdentity: Identity,
+        signature: String?
+    ): JsonKeycloakUserDetails?
+
     fun verifyKeycloakSignature(
         session: Session,
         ownedIdentity: Identity?,
         signature: String?
     ): String?
-
-    fun verifyKeycloakIdentitySignature(
-        session: Session,
-        ownedIdentity: Identity?,
-        signature: String?
-    ): JsonKeycloakUserDetails?
 
     @Throws(SQLException::class)
     fun getOwnedIdentityKeycloakServerUrl(session: Session, ownedIdentity: Identity?): String?

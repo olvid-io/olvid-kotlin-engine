@@ -503,15 +503,17 @@ class KeycloakContactAdditionProtocol(
 
             val ownUserDetails =
                 protocolManagerSession.identityDelegate.verifyKeycloakIdentitySignature(
-                    protocolManagerSession.session,
-                    ownedIdentity,
-                    ownedIdentityDetails.getSignedUserDetails()
+                    session = protocolManagerSession.session,
+                    ownedIdentity = ownedIdentity,
+                    expectedSignedIdentity = ownedIdentity,
+                    signature = ownedIdentityDetails.getSignedUserDetails()
                 )
             val contactUserDetails =
                 protocolManagerSession.identityDelegate.verifyKeycloakIdentitySignature(
-                    protocolManagerSession.session,
-                    ownedIdentity,
-                    receivedMessage.signedContactDetails
+                    session = protocolManagerSession.session,
+                    ownedIdentity = ownedIdentity,
+                    expectedSignedIdentity = receivedMessage.contactIdentity,
+                    signature = receivedMessage.signedContactDetails
                 )
             if (ownUserDetails == null || contactUserDetails == null) {
                 return FinishedProtocolState()
@@ -842,13 +844,24 @@ class KeycloakContactAdditionProtocol(
             // verify the received contact signature
             /**///// */
             val contactUserDetails =
-                protocolManagerSession.identityDelegate!!.verifyKeycloakIdentitySignature(
-                    protocolManagerSession.session,
-                    ownedIdentity,
-                    receivedMessage.signedContactDetails
+                protocolManagerSession.identityDelegate?.verifyKeycloakIdentitySignature(
+                    session = protocolManagerSession.session,
+                    ownedIdentity = ownedIdentity,
+                    expectedSignedIdentity = receivedMessage.contactIdentity,
+                    signature = receivedMessage.signedContactDetails
                 )
 
-            if (contactUserDetails == null) {
+            // also check that the received keycloakServerUrl matches our own server
+            // (URLs are compared in a normalized form, as different clients may store them differently)
+            val keycloakServerUrl = protocolManagerSession.identityDelegate!!.getOwnedIdentityKeycloakServerUrl(
+                session = protocolManagerSession.session,
+                ownedIdentity = ownedIdentity
+            )
+
+            if (contactUserDetails == null
+                || keycloakServerUrl == null
+                || normalizeKeycloakServerUrl(keycloakServerUrl) != normalizeKeycloakServerUrl(receivedMessage.keycloakServerUrl)
+            ) {
                 // respond "rejected"
                 val coreProtocolMessage = buildCoreProtocolMessage(
                     SendChannelInfo.createAsymmetricChannelInfo(
@@ -906,7 +919,7 @@ class KeycloakContactAdditionProtocol(
                 createServerQueryChannelInfo(
                     ownedIdentity,
                     CheckKeycloakRevocationQuery(
-                        receivedMessage.keycloakServerUrl,
+                        keycloakServerUrl,
                         receivedMessage.signedContactDetails
                     )
                 )
@@ -924,7 +937,7 @@ class KeycloakContactAdditionProtocol(
                 receivedMessage.contactIdentity,
                 contactSerializedDetails,
                 receivedMessage.contactDeviceUids!!,
-                receivedMessage.keycloakServerUrl
+                keycloakServerUrl
             )
         }
     }
@@ -1094,6 +1107,12 @@ class KeycloakContactAdditionProtocol(
 
 
     companion object {
+        // Normalized form of a keycloak server URL, used to compare URLs which may differ only by surrounding whitespace or
+        // trailing slashes (some clients store the URL exactly as found in the configuration, others append a trailing slash)
+        private fun normalizeKeycloakServerUrl(keycloakServerUrl: String): String {
+            return keycloakServerUrl.trim().trimEnd('/')
+        }
+
         // region States
         const val WAITING_FOR_DEVICE_DISCOVERY_STATED_ID: Int = 1
         const val WAITING_FOR_CONFIRMATION_STATE_ID: Int = 2

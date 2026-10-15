@@ -99,9 +99,10 @@ class ContactSyncSnapshot : ObvSyncSnapshotNode {
         // check for keycloak badge
         val jsonKeycloakUserDetails =
             identityManagerSession.identityDelegate?.verifyKeycloakIdentitySignature(
-                identityManagerSession.session,
-                ownedIdentity,
-                trustedDetails.jsonIdentityDetailsWithVersionAndPhoto?.getIdentityDetails()
+                session = identityManagerSession.session,
+                ownedIdentity = ownedIdentity,
+                expectedSignedIdentity = contactIdentity,
+                signature = trustedDetails.jsonIdentityDetailsWithVersionAndPhoto?.getIdentityDetails()
                     ?.getSignedUserDetails()
             )
         if (jsonKeycloakUserDetails != null) {

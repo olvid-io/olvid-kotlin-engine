@@ -139,6 +139,10 @@ import io.olvid.engine.metamanager.PreKeyEncryptionDelegate
 import io.olvid.engine.metamanager.SolveChallengeDelegate
 import io.olvid.engine.protocol.datatypes.ProtocolStarterDelegate
 import io.olvid.engine.storage.EngineFileIo
+import org.jose4j.jwk.JsonWebKey
+import org.jose4j.jwt.consumer.InvalidJwtException
+import org.jose4j.jwt.consumer.JwtConsumerBuilder
+import org.jose4j.keys.resolvers.JwksVerificationKeyResolver
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.security.InvalidKeyException
@@ -148,10 +152,6 @@ import java.util.EnumSet
 import java.util.Map
 import java.util.Timer
 import java.util.TimerTask
-import org.jose4j.jwk.JsonWebKey
-import org.jose4j.jwt.consumer.InvalidJwtException
-import org.jose4j.jwt.consumer.JwtConsumerBuilder
-import org.jose4j.keys.resolvers.JwksVerificationKeyResolver
 
 
 class IdentityManager(
@@ -1357,19 +1357,20 @@ class IdentityManager(
 
     override fun verifyKeycloakIdentitySignature(
         session: Session,
-        ownedIdentity: Identity?,
+        ownedIdentity: Identity,
+        expectedSignedIdentity: Identity,
         signature: String?
     ): JsonKeycloakUserDetails? {
         try {
-            val ownedIdentityObject: OwnedIdentity? =
-                OwnedIdentity.get(wrapSession(session), ownedIdentity)
-            if (ownedIdentityObject == null || !ownedIdentityObject.isKeycloakManaged) {
+            if (signature == null) {
                 return null
             }
-            val keycloakServer = ownedIdentityObject.keycloakServer
+            val ownedIdentityObject: OwnedIdentity =
+                OwnedIdentity.get(wrapSession(session), ownedIdentity) ?: return null
+            val keycloakServer = ownedIdentityObject.keycloakServer ?: return null
 
             val jwksResolver: JwksVerificationKeyResolver
-            val signatureKey = keycloakServer!!.signatureKey
+            val signatureKey = keycloakServer.signatureKey
             if (signatureKey != null) {
                 jwksResolver = JwksVerificationKeyResolver(mutableListOf<JsonWebKey?>(signatureKey))
             } else {
@@ -1383,37 +1384,40 @@ class IdentityManager(
 
 
             val context = jwtConsumer.process(signature)
-            if (context.getJwtClaims() != null) {
+            if (context.jwtClaims != null) {
                 // signature is valid, now check for a revocation
-                val jsonKeycloakUserDetails = jsonObjectMapper.readValue<JsonKeycloakUserDetails>(
-                    context.getJwtClaims().getRawJson(), JsonKeycloakUserDetails::class.java
+                val jsonKeycloakUserDetails = jsonObjectMapper.readValue(
+                    context.jwtClaims.rawJson, JsonKeycloakUserDetails::class.java
                 )
 
-                if (jsonKeycloakUserDetails.getIdentity() != null) {
-                    try {
-                        val identityToVerify = Identity.of(jsonKeycloakUserDetails.getIdentity()!!)
+                val identityBytes = jsonKeycloakUserDetails.getIdentity() ?: return null
+                val identityToVerify = runCatching {
+                    Identity.of(identityBytes = identityBytes)
+                }.getOrElse { return null }
 
-                        val keycloakRevokedIdentities: MutableList<KeycloakRevokedIdentity?>? =
-                            KeycloakRevokedIdentity.get(
-                                wrapSession(session),
-                                ownedIdentity,
-                                identityToVerify
-                            )
-                        if (keycloakRevokedIdentities != null) {
-                            // there was a revocation!
-                            for (keycloakRevokedIdentity in keycloakRevokedIdentities) {
-                                when (keycloakRevokedIdentity!!.revocationType) {
-                                    KeycloakRevokedIdentity.TYPE_LEFT_COMPANY -> if (jsonKeycloakUserDetails.getTimestamp() == null || keycloakRevokedIdentity.revocationTimestamp > jsonKeycloakUserDetails.getTimestamp()!!) {
-                                        // the user left the company after the signature of his details --> reject
-                                        return null
-                                    }
+                if (identityToVerify != expectedSignedIdentity) {
+                    Logger.w("verifyKeycloakIdentitySignature() identity mismatch!")
+                    return null
+                }
 
-                                    KeycloakRevokedIdentity.TYPE_COMPROMISED -> return null
-                                    else -> return null
-                                }
+                val keycloakRevokedIdentities: MutableList<KeycloakRevokedIdentity?>? =
+                    KeycloakRevokedIdentity.get(
+                        wrapSession(session),
+                        ownedIdentity,
+                        identityToVerify
+                    )
+                if (keycloakRevokedIdentities != null) {
+                    // there was a revocation!
+                    for (keycloakRevokedIdentity in keycloakRevokedIdentities) {
+                        when (keycloakRevokedIdentity!!.revocationType) {
+                            KeycloakRevokedIdentity.TYPE_LEFT_COMPANY -> if (jsonKeycloakUserDetails.getTimestamp() == null || keycloakRevokedIdentity.revocationTimestamp > jsonKeycloakUserDetails.getTimestamp()!!) {
+                                // the user left the company after the signature of his details --> reject
+                                return null
                             }
+
+                            KeycloakRevokedIdentity.TYPE_COMPROMISED -> return null
+                            else -> return null
                         }
-                    } catch (_: DecodingException) {
                     }
                 }
 
@@ -2753,18 +2757,19 @@ class IdentityManager(
 
             if (publishedDetails != null) {
                 val identityDetails = publishedDetails.jsonIdentityDetails
-                if (identityDetails != null && identityDetails.signedUserDetails != null) {
+                identityDetails?.signedUserDetails?.let { signedUserDetails ->
                     val jsonKeycloakUserDetails = verifyKeycloakIdentitySignature(
-                        session,
-                        ownedIdentity,
-                        identityDetails.signedUserDetails
+                        session = session,
+                        ownedIdentity = ownedIdentity,
+                        expectedSignedIdentity = contactIdentity.getContactIdentity(),
+                        signature = signedUserDetails
                     )
 
                     if (jsonKeycloakUserDetails != null) {
                         // the contact has some valid signed details
                         try {
                             val certifiedJsonIdentityDetails =
-                                jsonKeycloakUserDetails.getIdentityDetails(identityDetails.signedUserDetails)
+                                jsonKeycloakUserDetails.getIdentityDetails(signedUserDetails)
                             contactIdentity.markContactAsCertifiedByOwnKeycloak(
                                 certifiedJsonIdentityDetails
                             )

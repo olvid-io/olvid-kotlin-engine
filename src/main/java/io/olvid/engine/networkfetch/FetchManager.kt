@@ -965,6 +965,14 @@ class FetchManager(
         }
     }
 
+    override fun getGifProxyUrl(server: String?): String? {
+        try {
+            return wellKnownCoordinator.getGifProxyUrl(server)
+        } catch (_: Exception) {
+            return null
+        }
+    }
+
     // endregion
     // region implement PushNotificationDelegate
     @Throws(SQLException::class)

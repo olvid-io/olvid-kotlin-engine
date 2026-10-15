@@ -136,4 +136,5 @@ interface NetworkFetchDelegate {
     fun queryServerWellKnown(server: String?)
     fun getOsmStyles(server: String?): MutableList<JsonOsmStyle>?
     fun getAddressServerUrl(server: String?): String?
+    fun getGifProxyUrl(server: String?): String?
 }

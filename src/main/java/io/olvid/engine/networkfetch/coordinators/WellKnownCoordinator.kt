@@ -297,6 +297,22 @@ class WellKnownCoordinator(
         return jsonWellKnown.serverConfig!!.addressServerUrl
     }
 
+    @Throws(NotCachedException::class)
+    override fun getGifProxyUrl(server: String?): String? {
+        if (!cacheInitialized) {
+            throw NotCachedException()
+        }
+        val jsonWellKnown = wellKnownCache.get(server)
+        if (jsonWellKnown == null) {
+            queueNewWellKnownDownloadOperation(server)
+            throw NotCachedException()
+        }
+        if (jsonWellKnown.serverConfig == null) {
+            return null
+        }
+        return jsonWellKnown.serverConfig!!.gifProxyUrl
+    }
+
     @JsonIgnoreProperties(ignoreUnknown = true)
     class JsonWellKnown {
         @JsonProperty("server")
@@ -325,5 +341,8 @@ class WellKnownCoordinator(
 
         @JsonProperty("osm_styles")
         @JvmField var osmStyles: MutableList<JsonOsmStyle>? = null
+
+        @JsonProperty("gif_proxy")
+        @JvmField var gifProxyUrl: String? = null
     }
 }

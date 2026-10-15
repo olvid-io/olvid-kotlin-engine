@@ -1,3 +1,9 @@
+# Version 1.2.4
+2026-10-15
+
+- Add support for GIF proxy in the server well-known.
+- Fix an issue the keycloak contact addition protocol.
+
 # Version 1.2.3
 2026-10-02
 
