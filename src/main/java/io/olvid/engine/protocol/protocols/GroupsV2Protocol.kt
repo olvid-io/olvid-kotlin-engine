@@ -2165,9 +2165,9 @@ class GroupsV2Protocol(
                         protocolManagerSession.channelDelegate!!.getConfirmedObliviousChannelOrPreKeyDeviceUids(
                             protocolManagerSession.session,
                             ownedIdentity,
-                            groupMembersAndPermission!!.identity
+                            groupMembersAndPermission.identity
                         )
-                    if (contactDeviceUidsWithChannel.size > 0) {
+                    if (contactDeviceUidsWithChannel.isNotEmpty()) {
                         val keysToSend = BlobKeys(
                             blobKeys.blobMainSeed,
                             blobKeys.blobVersionSeed,
@@ -4378,7 +4378,7 @@ class GroupsV2Protocol(
                                         Constants.SignatureContext.GROUP_JOIN_NONCE,
                                         groupIdentifier,
                                         ownGroupInvitationNonce,
-                                        groupMember!!.identity,
+                                        groupMember.identity,
                                         ownedIdentity,
                                         prng
                                     )
@@ -4576,29 +4576,20 @@ class GroupsV2Protocol(
             val adminKeyIsMissing =
                 blobKeys == null || blobKeys.groupAdminServerAuthenticationPrivateKey == null
 
-            // check that we did not remove ourself, or our GROUP_ADMIN permission in the changeSet
+            // check that we did not remove ourselves, or our GROUP_ADMIN permission in the changeSet
             val removedOurself =
-                receivedMessage.changeSet.removedMembers.contains(ownedIdentity.getBytes())
+                receivedMessage.changeSet.removedMembers.any { it.contentEquals(ownedIdentity.getBytes()) }
             val ownPermissions =
-                receivedMessage.changeSet.permissionChanges.get(ObvBytesKey(ownedIdentity.getBytes()))
+                receivedMessage.changeSet.permissionChanges[ObvBytesKey(ownedIdentity.getBytes())]
             val removedOurAdminPermission =
                 ownPermissions != null && !ownPermissions.contains(GroupV2.Permission.GROUP_ADMIN)
 
             if (adminKeyIsMissing || removedOurself || removedOurAdminPermission) {
                 // invalid update, discard the changeSet and notify (for app)
                 val userInfo = HashMap<String, Any>()
-                userInfo.put(
-                    ProtocolNotifications.NOTIFICATION_GROUP_V2_UPDATE_FAILED_OWNED_IDENTITY_KEY,
-                    ownedIdentity
-                )
-                userInfo.put(
-                    ProtocolNotifications.NOTIFICATION_GROUP_V2_UPDATE_FAILED_GROUP_IDENTIFIER_KEY,
-                    receivedMessage.groupIdentifier
-                )
-                userInfo.put(
-                    ProtocolNotifications.NOTIFICATION_GROUP_V2_UPDATE_FAILED_ERROR_KEY,
-                    true
-                )
+                userInfo[ProtocolNotifications.NOTIFICATION_GROUP_V2_UPDATE_FAILED_OWNED_IDENTITY_KEY] = ownedIdentity
+                userInfo[ProtocolNotifications.NOTIFICATION_GROUP_V2_UPDATE_FAILED_GROUP_IDENTIFIER_KEY] = receivedMessage.groupIdentifier
+                userInfo[ProtocolNotifications.NOTIFICATION_GROUP_V2_UPDATE_FAILED_ERROR_KEY] = true
                 protocolManagerSession.notificationPostingDelegate?.postNotification(
                     ProtocolNotifications.NOTIFICATION_GROUP_V2_UPDATE_FAILED,
                     userInfo
@@ -4608,18 +4599,9 @@ class GroupsV2Protocol(
             } else if (receivedMessage.changeSet.isEmpty()) {
                 // empty changeset, still notify, but without error
                 val userInfo = HashMap<String, Any>()
-                userInfo.put(
-                    ProtocolNotifications.NOTIFICATION_GROUP_V2_UPDATE_FAILED_OWNED_IDENTITY_KEY,
-                    ownedIdentity
-                )
-                userInfo.put(
-                    ProtocolNotifications.NOTIFICATION_GROUP_V2_UPDATE_FAILED_GROUP_IDENTIFIER_KEY,
-                    receivedMessage.groupIdentifier
-                )
-                userInfo.put(
-                    ProtocolNotifications.NOTIFICATION_GROUP_V2_UPDATE_FAILED_ERROR_KEY,
-                    false
-                )
+                userInfo[ProtocolNotifications.NOTIFICATION_GROUP_V2_UPDATE_FAILED_OWNED_IDENTITY_KEY] = ownedIdentity
+                userInfo[ProtocolNotifications.NOTIFICATION_GROUP_V2_UPDATE_FAILED_GROUP_IDENTIFIER_KEY] = receivedMessage.groupIdentifier
+                userInfo[ProtocolNotifications.NOTIFICATION_GROUP_V2_UPDATE_FAILED_ERROR_KEY] = false
                 protocolManagerSession.notificationPostingDelegate?.postNotification(
                     ProtocolNotifications.NOTIFICATION_GROUP_V2_UPDATE_FAILED,
                     userInfo
@@ -4660,12 +4642,11 @@ class GroupsV2Protocol(
                         receivedMessage.groupIdentifier
                     )
 
-                // built the list of all identities to notify
+                // build the list of all identities to notify
                 val toIdentities: MutableList<Identity> = ArrayList()
                 toIdentities.add(ownedIdentity)
                 if (otherMembers != null) {
                     for (otherMember in otherMembers) {
-                        if (otherMember == null) continue
                         // do not include removed members
                         if (!removedIdentities.contains(ObvBytesKey(otherMember.identity.getBytes()))) {
                             toIdentities.add(otherMember.identity)
@@ -4756,15 +4737,9 @@ class GroupsV2Protocol(
             )
 
             val userInfo = HashMap<String, Any>()
-            userInfo.put(
-                ProtocolNotifications.NOTIFICATION_GROUP_V2_UPDATE_FAILED_OWNED_IDENTITY_KEY,
-                ownedIdentity
-            )
-            userInfo.put(
-                ProtocolNotifications.NOTIFICATION_GROUP_V2_UPDATE_FAILED_GROUP_IDENTIFIER_KEY,
-                startState.groupIdentifier
-            )
-            userInfo.put(ProtocolNotifications.NOTIFICATION_GROUP_V2_UPDATE_FAILED_ERROR_KEY, error)
+            userInfo[ProtocolNotifications.NOTIFICATION_GROUP_V2_UPDATE_FAILED_OWNED_IDENTITY_KEY] = ownedIdentity
+            userInfo[ProtocolNotifications.NOTIFICATION_GROUP_V2_UPDATE_FAILED_GROUP_IDENTIFIER_KEY] = startState.groupIdentifier
+            userInfo[ProtocolNotifications.NOTIFICATION_GROUP_V2_UPDATE_FAILED_ERROR_KEY] = error
             protocolManagerSession.notificationPostingDelegate?.postNotification(
                 ProtocolNotifications.NOTIFICATION_GROUP_V2_UPDATE_FAILED,
                 userInfo
@@ -4894,11 +4869,24 @@ class GroupsV2Protocol(
             }
 
             // consolidate the blob with the received log entries
-            initialServerBlob.consolidateWithLogEntries(
+            val consolidatedLogLeavers = initialServerBlob.consolidateWithLogEntries(
                 startState.groupIdentifier,
                 receivedMessage.logEntries
-            )
+            ).toSet()
 
+            // if we have not yet pre-shot a seed (because this group update did not remove any member) but there are some consolidatedLogLeavers, we need to rotate the seed
+            // also, if we did pre-shot a new seed, but we sent it to some of these consolidatedLogLeavers, we should generate a new seed and pre-shoot it too.
+            val needToPreShootANewSeed = consolidatedLogLeavers.isNotEmpty() && (
+                    startState.preShotVersionSeed == null ||
+                            protocolManagerSession.identityDelegate.getGroupV2OtherMembersAndPermissions(
+                                protocolManagerSession.session,
+                                ownedIdentity,
+                                startState.groupIdentifier
+                            )?.any { member ->
+                                consolidatedLogLeavers.contains(member.identity)
+                                        && startState.changeSet.removedMembers.none { it.contentEquals(member.identity.getBytes()) }
+                            } ?: false
+                    )
 
             // check if there is anything to change in the blob, based on the received changeSet
             var changed = false
@@ -4909,7 +4897,7 @@ class GroupsV2Protocol(
             val membersToKick = HashMap<Identity?, ByteArray?>()
             run {
                 // removed members
-                if (!startState.changeSet.removedMembers.isEmpty()) {
+                if (startState.changeSet.removedMembers.isNotEmpty()) {
                     val removedMembersSet = HashSet<Identity?>()
                     for (bytesIdentity in startState.changeSet.removedMembers) {
                         try {
@@ -4919,7 +4907,7 @@ class GroupsV2Protocol(
                     }
 
                     val toRemove: MutableList<IdentityAndPermissionsAndDetails> =
-                        ArrayList<IdentityAndPermissionsAndDetails>()
+                        ArrayList()
                     for (member in members) {
                         if (removedMembersSet.contains(member.identity)) {
                             toRemove.add(member)
@@ -4935,7 +4923,7 @@ class GroupsV2Protocol(
 
 
                 // permission changes
-                if (!startState.changeSet.permissionChanges.isEmpty()) {
+                if (startState.changeSet.permissionChanges.isNotEmpty()) {
                     for (member in members) {
                         try {
                             val newPermissions =
@@ -5060,7 +5048,7 @@ class GroupsV2Protocol(
                         protocolManagerSession.session,
                         ownedIdentity,
                         identity
-                    ).size == 0
+                    ).isEmpty()
                 ) {
                     // a new member does not have a channel --> discard the changeSet and notify (for app)
                     unfreezeAndNotifyUpdateFailed(protocolManagerSession, true)
@@ -5193,29 +5181,69 @@ class GroupsV2Protocol(
             }
 
 
-            // if the start state contains a preShotVersionSeed, this means our changeset contained some member
-            // removals and the blob version seed should be rotated. Otherwise, we reuse the versionSeed that was used to decrypt the blob we downloaded
-            val updatedBlobKeys: BlobKeys = if (startState.preShotVersionSeed == null) {
-                if (initialBlobVersionSeed == null) {
-                    // this should never happen, we always have a version seed if we could decrypt the blob
-                    BlobKeys(
-                        blobKeys.blobMainSeed,
-                        Seed(prng),
-                        groupAdminServerAuthenticationKeyPair.getPrivateKey() as ServerAuthenticationPrivateKey
-                    )
-                } else {
-                    // reuse the versionSeed that was used to decrypt the blob
-                    BlobKeys(
-                        blobKeys.blobMainSeed,
-                        initialBlobVersionSeed,
-                        groupAdminServerAuthenticationKeyPair.getPrivateKey() as ServerAuthenticationPrivateKey
-                    )
+            var preShotVersionSeed = startState.preShotVersionSeed
+            if (needToPreShootANewSeed) {
+                preShotVersionSeed = Seed(prng = prng)
+
+                // pre-shoot this new seed to all group members that are still in the consolidated blob
+                val dbMemberIdentities =
+                    protocolManagerSession.identityDelegate.getGroupV2OtherMembersAndPermissions(
+                        protocolManagerSession.session,
+                        ownedIdentity,
+                        startState.groupIdentifier
+                    )?.map { it.identity }
+                val updatedBlobMemberIdentities = members.mapTo(mutableSetOf()) { it.identity }
+
+                // build the list of all identities to notify
+                val toIdentities: MutableList<Identity> = ArrayList()
+                toIdentities.add(ownedIdentity)
+                if (dbMemberIdentities != null) {
+                    for (dbMemberIdentity in dbMemberIdentities) {
+                        // only include members still in the blob
+                        if (updatedBlobMemberIdentities.contains(dbMemberIdentity)) {
+                            toIdentities.add(dbMemberIdentity)
+                        }
+                    }
                 }
+
+                val sendChannelInfos =
+                    createAllConfirmedObliviousChannelsOrPreKeysInfoForMultipleIdentities(
+                        toIdentities.toTypedArray(),
+                        ownedIdentity
+                    )!!
+                for (sendChannelInfo in sendChannelInfos) {
+                    try {
+                        val coreProtocolMessage = buildCoreProtocolMessage(sendChannelInfo)
+                        val messageToSend: ChannelMessageToSend? = PreShotVersionSeedMessage(
+                            coreProtocolMessage,
+                            startState.groupIdentifier,
+                            preShotVersionSeed
+                        ).generateChannelProtocolMessageToSend()
+                        protocolManagerSession.channelDelegate!!.post(
+                            protocolManagerSession.session,
+                            messageToSend,
+                            prng
+                        )
+                    } catch (_: Exception) {
+                        Logger.d("One server with no channel during GroupsV2Protocol.PrepareBlobForGroupUpdateStep")
+                    }
+                }
+            }
+
+            // if we have a preShotVersionSeed, this means some members were removed (or left) from the group since last group update
+            // and the blob version seed should be rotated. Otherwise, we reuse the versionSeed that was used to decrypt the blob we downloaded
+            val updatedBlobKeys: BlobKeys = if (preShotVersionSeed == null) {
+                // reuse the versionSeed that was used to decrypt the blob
+                BlobKeys(
+                    blobKeys.blobMainSeed,
+                    initialBlobVersionSeed,
+                    groupAdminServerAuthenticationKeyPair.getPrivateKey() as ServerAuthenticationPrivateKey
+                )
             } else {
                 // use the preShotVersionSeed
                 BlobKeys(
                     blobKeys.blobMainSeed,
-                    startState.preShotVersionSeed,
+                    preShotVersionSeed,
                     groupAdminServerAuthenticationKeyPair.getPrivateKey() as ServerAuthenticationPrivateKey
                 )
             }
@@ -5313,7 +5341,7 @@ class GroupsV2Protocol(
                 membersToKick,
                 absolutePhotoUrlToUpload,
                 startState.failedUploadCounter,
-                startState.preShotVersionSeed
+                preShotVersionSeed
             )
         }
     }
@@ -5344,18 +5372,9 @@ class GroupsV2Protocol(
                 )
 
                 val userInfo = HashMap<String, Any>()
-                userInfo.put(
-                    ProtocolNotifications.NOTIFICATION_GROUP_V2_UPDATE_FAILED_OWNED_IDENTITY_KEY,
-                    ownedIdentity
-                )
-                userInfo.put(
-                    ProtocolNotifications.NOTIFICATION_GROUP_V2_UPDATE_FAILED_GROUP_IDENTIFIER_KEY,
-                    startState.groupIdentifier
-                )
-                userInfo.put(
-                    ProtocolNotifications.NOTIFICATION_GROUP_V2_UPDATE_FAILED_ERROR_KEY,
-                    true
-                )
+                userInfo[ProtocolNotifications.NOTIFICATION_GROUP_V2_UPDATE_FAILED_OWNED_IDENTITY_KEY] = ownedIdentity
+                userInfo[ProtocolNotifications.NOTIFICATION_GROUP_V2_UPDATE_FAILED_GROUP_IDENTIFIER_KEY] = startState.groupIdentifier
+                userInfo[ProtocolNotifications.NOTIFICATION_GROUP_V2_UPDATE_FAILED_ERROR_KEY] = true
                 protocolManagerSession.notificationPostingDelegate?.postNotification(
                     ProtocolNotifications.NOTIFICATION_GROUP_V2_UPDATE_FAILED,
                     userInfo
@@ -5369,21 +5388,12 @@ class GroupsV2Protocol(
                     ownedIdentity,
                     startState.groupIdentifier
                 )
-                if (blobKeys == null || blobKeys.groupAdminServerAuthenticationPrivateKey == null) {
+                if (blobKeys?.groupAdminServerAuthenticationPrivateKey == null) {
                     // we don't have the key to update on server, discard the changeSet and notify (for app)
                     val userInfo = HashMap<String, Any>()
-                    userInfo.put(
-                        ProtocolNotifications.NOTIFICATION_GROUP_V2_UPDATE_FAILED_OWNED_IDENTITY_KEY,
-                        ownedIdentity
-                    )
-                    userInfo.put(
-                        ProtocolNotifications.NOTIFICATION_GROUP_V2_UPDATE_FAILED_GROUP_IDENTIFIER_KEY,
-                        startState.groupIdentifier
-                    )
-                    userInfo.put(
-                        ProtocolNotifications.NOTIFICATION_GROUP_V2_UPDATE_FAILED_ERROR_KEY,
-                        true
-                    )
+                    userInfo[ProtocolNotifications.NOTIFICATION_GROUP_V2_UPDATE_FAILED_OWNED_IDENTITY_KEY] = ownedIdentity
+                    userInfo[ProtocolNotifications.NOTIFICATION_GROUP_V2_UPDATE_FAILED_GROUP_IDENTIFIER_KEY] = startState.groupIdentifier
+                    userInfo[ProtocolNotifications.NOTIFICATION_GROUP_V2_UPDATE_FAILED_ERROR_KEY] = true
                     protocolManagerSession.notificationPostingDelegate?.postNotification(
                         ProtocolNotifications.NOTIFICATION_GROUP_V2_UPDATE_FAILED,
                         userInfo
@@ -5506,7 +5516,7 @@ class GroupsV2Protocol(
         }
 
         @Throws(Exception::class)
-        override fun executeStep(): ConcreteProtocolState? {
+        override fun executeStep(): ConcreteProtocolState {
             val protocolManagerSession = protocolManagerSession!!
 
             // this is for the legacy protocol and should no longer be used as we always immediately finalize the protocol
@@ -5730,7 +5740,7 @@ class GroupsV2Protocol(
                 }
             }
 
-            if (!startState.membersToKick.isEmpty()) {
+            if (startState.membersToKick.isNotEmpty()) {
                 // compute the encrypted administrators chain
                 val chainPlaintext = startState.updatedBlob.administratorsChain.encode().bytes
                 val encryptionKey = Suite.getKDF(KDF.KDF_SHA256).gen(
@@ -5741,8 +5751,8 @@ class GroupsV2Protocol(
                     .encrypt(encryptionKey, chainPlaintext, prng)
 
                 // kick removed members
-                for (entry in startState.membersToKick.entries) {
-                    val dataToSign = ByteArray(encryptedChain.length + entry.value!!.size)
+                for ((key, value) in startState.membersToKick) {
+                    val dataToSign = ByteArray(encryptedChain.length + value!!.size)
                     System.arraycopy(
                         encryptedChain.getBytes(),
                         0,
@@ -5751,11 +5761,11 @@ class GroupsV2Protocol(
                         encryptedChain.length
                     )
                     System.arraycopy(
-                        entry.value,
+                        value,
                         0,
                         dataToSign,
                         encryptedChain.length,
-                        entry.value!!.size
+                        value.size
                     )
 
                     val signature = protocolManagerSession.identityDelegate.signBlock(
@@ -5767,7 +5777,7 @@ class GroupsV2Protocol(
                     )
 
                     val coreProtocolMessage = buildCoreProtocolMessage(
-                        createAsymmetricBroadcastChannelInfo(entry.key, ownedIdentity)
+                        createAsymmetricBroadcastChannelInfo(key, ownedIdentity)
                     )
                     val messageToSend: ChannelMessageToSend? = KickMessage(
                         coreProtocolMessage,
@@ -6340,7 +6350,7 @@ class GroupsV2Protocol(
                     ownedIdentity,
                     this.groupIdentifier
                 )!!) {
-                    groupMembersToNotify.add(groupMember!!.identity)
+                    groupMembersToNotify.add(groupMember.identity)
                 }
             }
 

@@ -655,21 +655,18 @@ object GroupV2 {
     ) {
         fun encode(): Encoded {
             val map = HashMap<DictionaryKey, Encoded>()
-            map.put(DictionaryKey(KEY_ADMINISTRATORS_CHAIN), administratorsChain.encode())
+            map[DictionaryKey(KEY_ADMINISTRATORS_CHAIN)] = administratorsChain.encode()
             val encodedGroupMembers: Array<Encoded> = groupMemberIdentityAndPermissionsAndDetailsList
                 .map { it.encode() }
                 .toTypedArray()
-            map.put(
-                DictionaryKey(KEY_GROUP_MEMBER_IDENTITY_AND_PERMISSIONS_AND_DETAILS_LIST),
-                Encoded.of(encodedGroupMembers)
-            )
-            map.put(DictionaryKey(KEY_VERSION), Encoded.of(version.toLong()))
-            map.put(DictionaryKey(KEY_SERIALIZED_GROUP_DETAILS), Encoded.of(serializedGroupDetails))
+            map[DictionaryKey(KEY_GROUP_MEMBER_IDENTITY_AND_PERMISSIONS_AND_DETAILS_LIST)] = Encoded.of(encodedGroupMembers)
+            map[DictionaryKey(KEY_VERSION)] = Encoded.of(version.toLong())
+            map[DictionaryKey(KEY_SERIALIZED_GROUP_DETAILS)] = Encoded.of(serializedGroupDetails)
             if (serverPhotoInfo != null) {
-                map.put(DictionaryKey(KEY_SERVER_PHOTO_INFO), serverPhotoInfo.encode())
+                map[DictionaryKey(KEY_SERVER_PHOTO_INFO)] = serverPhotoInfo.encode()
             }
             if (serializedGroupType != null) {
-                map.put(DictionaryKey(KEY_SERIALIZED_GROUP_TYPE), Encoded.of(serializedGroupType))
+                map[DictionaryKey(KEY_SERIALIZED_GROUP_TYPE)] = Encoded.of(serializedGroupType)
             }
             return Encoded.of(map)
         }
@@ -678,8 +675,8 @@ object GroupV2 {
             groupIdentifier: Identifier,
             logEntries: MutableList<ByteArray?>
         ): MutableList<Identity?> {
-            val leavers = java.util.HashSet<IdentityAndPermissionsAndDetails?>()
-            val out: MutableList<Identity?> = ArrayList<Identity?>()
+            val leavers = mutableSetOf<IdentityAndPermissionsAndDetails>()
+            val out: MutableList<Identity?> = ArrayList()
             for (logEntry in logEntries) {
                 for (groupMember in groupMemberIdentityAndPermissionsAndDetailsList) {
                     try {

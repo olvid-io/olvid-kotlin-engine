@@ -179,17 +179,14 @@ class SendChannelInfo private constructor(
                 }
             }
             val sendChannelInfos = arrayOfNulls<SendChannelInfo>(map.size)
-            var i = 0
-            for (server in map.keys) {
-                val serverIdentityList = map.get(server)
-                if (serverIdentityList != null && !serverIdentityList.isEmpty()) {
+            for ((i, server) in map.keys.withIndex()) {
+                val serverIdentityList = map[server]
+                if (!serverIdentityList.isNullOrEmpty()) {
                     val identities = arrayOfNulls<Identity>(serverIdentityList.size)
                     val deviceUids = arrayOfNulls<UID>(serverIdentityList.size)
-                    var j = 0
-                    for (identity in serverIdentityList) {
+                    for ((j, identity) in serverIdentityList.withIndex()) {
                         identities[j] = identity
-                        deviceUids[j] = deviceUidsMap.get(identity)
-                        j++
+                        deviceUids[j] = deviceUidsMap[identity]
                     }
 
                     sendChannelInfos[i] = SendChannelInfo(
@@ -206,7 +203,6 @@ class SendChannelInfo private constructor(
                 } else {
                     sendChannelInfos[i] = null
                 }
-                i++
             }
             return sendChannelInfos
         }

@@ -4986,7 +4986,7 @@ class IdentityManager(
         session: Session,
         ownedIdentity: Identity?,
         groupIdentifier: GroupV2.Identifier?
-    ): HashSet<IdentityAndPermissions?>? {
+    ): HashSet<IdentityAndPermissions>? {
         if ((ownedIdentity == null) || (groupIdentifier == null)) {
             return null
         }

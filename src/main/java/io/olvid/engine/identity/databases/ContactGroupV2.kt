@@ -1813,7 +1813,7 @@ class ContactGroupV2 : ObvDatabase {
             identityManagerSession: IdentityManagerSession,
             ownedIdentity: Identity?,
             groupIdentifier: GroupV2.Identifier?
-        ): HashSet<IdentityAndPermissions?>? {
+        ): HashSet<IdentityAndPermissions>? {
             if ((ownedIdentity == null) || (groupIdentifier == null)) {
                 return null
             }
@@ -1845,7 +1845,7 @@ class ContactGroupV2 : ObvDatabase {
                 statement.setInt(7, groupIdentifier.category)
                 statement.setBytes(8, ownedIdentity.getBytes())
                 statement.executeQuery().use { res ->
-                    val set = HashSet<IdentityAndPermissions?>()
+                    val set = HashSet<IdentityAndPermissions>()
                     while (res.next()) {
                         val identity = Identity.of(res.getBytes("id"))
                         val permissions = deserializeKnownPermissions(res.getBytes("perm"))

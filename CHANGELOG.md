@@ -1,3 +1,8 @@
+# Version 1.2.5
+2026-10-17
+
+- Fix a gap in the groupV2 seed rotation after someone leaves a group. 
+
 # Version 1.2.4
 2026-10-15
 

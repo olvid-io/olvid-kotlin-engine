@@ -1098,7 +1098,7 @@ interface IdentityDelegate {
         session: Session,
         ownedIdentity: Identity?,
         groupIdentifier: GroupV2.Identifier?
-    ): HashSet<IdentityAndPermissions?>?
+    ): HashSet<IdentityAndPermissions>?
 
     @Throws(Exception::class)
     fun getGroupV2HasOtherAdminMember(
