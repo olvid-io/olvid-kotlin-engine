@@ -207,17 +207,17 @@ class DeviceDiscoveryProtocol(
     // region Steps
     override fun getPossibleStepClasses(stateId: Int): Array<Class<*>> {
         when (stateId) {
-            ConcreteProtocol.INITIAL_STATE_ID -> return arrayOf<Class<*>>(
+            ConcreteProtocol.INITIAL_STATE_ID -> return arrayOf(
                 StartChildProtocolStep::class.java
             )
 
-            WAITING_FOR_CHILD_PROTOCOL_STATE_ID -> return arrayOf<Class<*>>(
+            WAITING_FOR_CHILD_PROTOCOL_STATE_ID -> return arrayOf(
                 ProcessChildProtocolStateStep::class.java
             )
 
-            CHILD_PROTOCOL_OUTPUT_PROCESSED_STATE_ID, CANCELLED_STATE_ID -> return arrayOf<Class<*>>()
+            CHILD_PROTOCOL_OUTPUT_PROCESSED_STATE_ID, CANCELLED_STATE_ID -> return arrayOf()
 
-            else -> return arrayOf<Class<*>>()
+            else -> return arrayOf()
         }
     }
 

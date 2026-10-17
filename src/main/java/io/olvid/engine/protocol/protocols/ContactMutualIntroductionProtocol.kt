@@ -557,27 +557,27 @@ class ContactMutualIntroductionProtocol(
     // region steps
     override fun getPossibleStepClasses(stateId: Int): Array<Class<*>> {
         when (stateId) {
-            ConcreteProtocol.INITIAL_STATE_ID -> return arrayOf<Class<*>>(
+            ConcreteProtocol.INITIAL_STATE_ID -> return arrayOf(
                 IntroduceContactsStep::class.java,
                 ProcessPropagatedInitialMessageStep::class.java,
                 CheckTrustLevelsAndShowDialogStep::class.java
             )
 
-            INVITATION_RECEIVED_STATE_ID -> return arrayOf<Class<*>>(
+            INVITATION_RECEIVED_STATE_ID -> return arrayOf(
                 PropagateInviteResponseStep::class.java,
                 ProcessPropagatedInviteResponseStep::class.java,
                 ReCheckTrustLevelsAfterTrustLevelIncreaseStep::class.java
             )
 
-            INVITATION_ACCEPTED_STATE_ID -> return arrayOf<Class<*>>(
+            INVITATION_ACCEPTED_STATE_ID -> return arrayOf(
                 PropagateNotificationAddTrustAndSendAckStep::class.java,
                 ProcessPropagatedNotificationAndAddTrustStep::class.java
             )
 
-            WAITING_FOR_ACK_STATE_ID -> return arrayOf<Class<*>>(NotifyMutualTrustEstablishedStep::class.java)
-            CONTACTS_INTRODUCED_STATE_ID, INVITATION_REJECTED_STATE_ID, MUTUAL_TRUST_ESTABLISHED_STATE_ID -> return arrayOf<Class<*>>()
+            WAITING_FOR_ACK_STATE_ID -> return arrayOf(NotifyMutualTrustEstablishedStep::class.java)
+            CONTACTS_INTRODUCED_STATE_ID, INVITATION_REJECTED_STATE_ID, MUTUAL_TRUST_ESTABLISHED_STATE_ID -> return arrayOf()
 
-            else -> return arrayOf<Class<*>>()
+            else -> return arrayOf()
         }
     }
 
@@ -594,8 +594,9 @@ class ContactMutualIntroductionProtocol(
             val protocolManagerSession = protocolManagerSession!!
 
             run {
-                // check that both contacts are active and oneToOne
-                if (!protocolManagerSession.identityDelegate!!.isIdentityAOneToOneContactOfOwnedIdentity(
+                // check that both contacts are distinct, active and oneToOne
+                if (receivedMessage.contactIdentityA == receivedMessage.contactIdentityB
+                    || !protocolManagerSession.identityDelegate!!.isIdentityAOneToOneContactOfOwnedIdentity(
                         protocolManagerSession.session,
                         ownedIdentity,
                         receivedMessage.contactIdentityA
@@ -754,6 +755,12 @@ class ContactMutualIntroductionProtocol(
             val protocolManagerSession = protocolManagerSession!!
 
             val mediatorIdentity = receivedMessage.receptionChannelInfo!!.getRemoteIdentity()
+
+            // refuse to be introduced to ourselves or to the mediator
+            if (receivedMessage.contactIdentity == ownedIdentity || receivedMessage.contactIdentity == mediatorIdentity) {
+                Logger.w("ContactMutualIntroductionProtocol: received an introduction to our own identity or to the mediator")
+                return InvitationRejectedState()
+            }
 
             // check that the mediator is a one to one contact --> reject if not
             if (!protocolManagerSession.identityDelegate!!.isIdentityAOneToOneContactOfOwnedIdentity(

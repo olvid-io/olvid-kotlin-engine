@@ -285,7 +285,7 @@ class DeviceCapabilitiesDiscoveryProtocol(
     // region Steps
     override fun getPossibleStepClasses(stateId: Int): Array<Class<*>> {
         when (stateId) {
-            ConcreteProtocol.INITIAL_STATE_ID -> return arrayOf<Class<*>>(
+            ConcreteProtocol.INITIAL_STATE_ID -> return arrayOf(
                 AddOwnCapabilitiesAndSendThemToAllContactsAndOwnedDevicesStep::class.java,
                 SendOwnCapabilitiesToContactDeviceStep::class.java,
                 SendOwnCapabilitiesToOtherOwnedDeviceStep::class.java,
@@ -293,8 +293,8 @@ class DeviceCapabilitiesDiscoveryProtocol(
                 ProcessReceivedOwnedDeviceCapabilitiesStep::class.java,
             )
 
-            FINISHED_STATE_ID -> return arrayOf<Class<*>>()
-            else -> return arrayOf<Class<*>>()
+            FINISHED_STATE_ID -> return arrayOf()
+            else -> return arrayOf()
         }
     }
 

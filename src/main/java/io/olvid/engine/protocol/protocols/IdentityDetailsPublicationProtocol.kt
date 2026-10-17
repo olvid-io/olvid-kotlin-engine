@@ -245,15 +245,15 @@ class IdentityDetailsPublicationProtocol(
     // region Steps
     override fun getPossibleStepClasses(stateId: Int): Array<Class<*>> {
         when (stateId) {
-            ConcreteProtocol.INITIAL_STATE_ID -> return arrayOf<Class<*>>(
+            ConcreteProtocol.INITIAL_STATE_ID -> return arrayOf(
                 StartPhotoUploadStep::class.java,
                 ReceiveDetailsStep::class.java,
                 ReceiveOwnDetailsStep::class.java
             )
 
-            UPLOADING_PHOTO_STATE_ID -> return arrayOf<Class<*>>(SendDetailsStep::class.java)
-            DETAILS_SENT_STATE_ID, DETAILS_RECEIVED_STATE_ID -> return arrayOf<Class<*>>()
-            else -> return arrayOf<Class<*>>()
+            UPLOADING_PHOTO_STATE_ID -> return arrayOf(SendDetailsStep::class.java)
+            DETAILS_SENT_STATE_ID, DETAILS_RECEIVED_STATE_ID -> return arrayOf()
+            else -> return arrayOf()
         }
     }
 

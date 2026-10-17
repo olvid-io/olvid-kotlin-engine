@@ -240,13 +240,13 @@ class KeycloakBindingAndUnbindingProtocol(
     // region steps
     override fun getPossibleStepClasses(stateId: Int): Array<Class<*>> {
         when (stateId) {
-            ConcreteProtocol.INITIAL_STATE_ID -> return arrayOf<Class<*>>(
+            ConcreteProtocol.INITIAL_STATE_ID -> return arrayOf(
                 OwnedIdentityKeycloakBindingStep::class.java,
                 OwnedIdentityKeycloakUnbindingStep::class.java
             )
 
-            FINISHED_STATED_ID -> return arrayOf<Class<*>>()
-            else -> return arrayOf<Class<*>>()
+            FINISHED_STATED_ID -> return arrayOf()
+            else -> return arrayOf()
         }
     }
 

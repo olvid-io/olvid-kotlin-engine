@@ -116,6 +116,7 @@ import io.olvid.engine.identity.databases.OwnedDevice
 import io.olvid.engine.identity.databases.OwnedIdentity
 import io.olvid.engine.identity.databases.OwnedIdentityDetails
 import io.olvid.engine.identity.databases.OwnedPreKey
+import io.olvid.engine.identity.databases.OwnedPreKeySignatureReceived
 import io.olvid.engine.identity.databases.PendingGroupMember
 import io.olvid.engine.identity.databases.ServerUserData
 import io.olvid.engine.identity.databases.backups.IdentityManagerDeviceSnapshot
@@ -609,6 +610,7 @@ class IdentityManager(
                 OwnedIdentity.createTable(identityManagerSession.session)
                 OwnedDevice.createTable(identityManagerSession.session)
                 OwnedPreKey.createTable(identityManagerSession.session)
+                OwnedPreKeySignatureReceived.createTable(identityManagerSession.session)
                 ContactIdentityDetails.createTable(identityManagerSession.session)
                 ContactIdentity.createTable(identityManagerSession.session)
                 ContactTrustOrigin.createTable(identityManagerSession.session)
@@ -6315,23 +6317,16 @@ class IdentityManager(
             if (wrappedKey!!.length < KeyId.KEYID_LENGTH) {
                 return null
             }
-            val keyId = KeyId(Arrays.copyOfRange(wrappedKey.getBytes(), 0, KeyId.KEYID_LENGTH))
-            val ownedPreKey: OwnedPreKey? =
-                OwnedPreKey.get(wrapSession(session), ownedIdentity!!, keyId)
-            if (ownedPreKey == null) {
-                return null
-            }
+            val keyId = KeyId(wrappedKey.getBytes().copyOfRange(0, KeyId.KEYID_LENGTH))
+            val ownedPreKey: OwnedPreKey =
+                OwnedPreKey.get(wrapSession(session), ownedIdentity!!, keyId) ?: return null
 
             val plaintextBytes: ByteArray
             try {
                 plaintextBytes =
                     Suite.getPublicKeyEncryption(ownedPreKey.encryptionPrivateKey)!!.decrypt(
                         ownedPreKey.encryptionPrivateKey, EncryptedBytes(
-                            Arrays.copyOfRange(
-                                wrappedKey.getBytes(),
-                                KeyId.KEYID_LENGTH,
-                                wrappedKey.length
-                            )
+                            wrappedKey.getBytes().copyOfRange(KeyId.KEYID_LENGTH, wrappedKey.length)
                         )
                     )!!
             } catch (_: InvalidKeyException) {
@@ -6368,14 +6363,31 @@ class IdentityManager(
                 Logger.w("PreKey wrapped messageKey signature verification failed!")
                 return null
             }
+
+            // check this message is not a replay of a message we already processed
+            if (OwnedPreKeySignatureReceived.exists(wrapSession(session), keyId, signature)) {
+                Logger.w("PreKey wrapped messageKey signature was already received, rejecting the message!")
+                return null
+            }
+
             return AuthEncKeyAndChannelInfo(
                 messageKey,
-                createPreKeyChannelInfo(remoteDeviceUid, remoteIdentity)
+                createPreKeyChannelInfo(remoteDeviceUid, remoteIdentity),
+                keyId,
+                signature
             )
         } catch (e: Exception) {
             Logger.x(e)
             return null
         }
+    }
+
+    override fun recordPreKeySignatureReceived(
+        session: Session,
+        preKeyId: KeyId,
+        signature: ByteArray
+    ): Boolean {
+        return OwnedPreKeySignatureReceived.create(wrapSession(session), preKeyId, signature) != null
     }
 
 
@@ -6774,6 +6786,7 @@ class IdentityManager(
                 }
             }
             OwnedPreKey.upgradeTable(session, oldVersion, newVersion)
+            OwnedPreKeySignatureReceived.upgradeTable(session, oldVersion, newVersion)
             ContactIdentityDetails.upgradeTable(session, oldVersion, newVersion)
             ContactIdentity.upgradeTable(session, oldVersion, newVersion)
             ContactTrustOrigin.upgradeTable(session, oldVersion, newVersion)

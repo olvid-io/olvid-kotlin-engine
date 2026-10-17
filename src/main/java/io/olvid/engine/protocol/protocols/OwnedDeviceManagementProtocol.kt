@@ -173,13 +173,13 @@ class OwnedDeviceManagementProtocol(
     // region Steps
     override fun getPossibleStepClasses(stateId: Int): Array<Class<*>> {
         when (stateId) {
-            ConcreteProtocol.INITIAL_STATE_ID -> return arrayOf<Class<*>>(
+            ConcreteProtocol.INITIAL_STATE_ID -> return arrayOf(
                 SendRequestStep::class.java
             )
 
-            REQUEST_SENT_STATE_ID -> return arrayOf<Class<*>>(ProcessResponseStateStep::class.java)
-            RESPONSE_PROCESSED_STATE_ID -> return arrayOf<Class<*>>()
-            else -> return arrayOf<Class<*>>()
+            REQUEST_SENT_STATE_ID -> return arrayOf(ProcessResponseStateStep::class.java)
+            RESPONSE_PROCESSED_STATE_ID -> return arrayOf()
+            else -> return arrayOf()
         }
     }
 

@@ -496,7 +496,7 @@ class OneToOneContactInvitationProtocol(
     // region Steps
     override fun getPossibleStepClasses(stateId: Int): Array<Class<*>> {
         when (stateId) {
-            ConcreteProtocol.INITIAL_STATE_ID -> return arrayOf<Class<*>>(
+            ConcreteProtocol.INITIAL_STATE_ID -> return arrayOf(
                 AliceInvitesBobStep::class.java,
                 BobProcessesAlicesInvitationStep::class.java,
                 AliceProcessesPropagatedInvitationStep::class.java,
@@ -507,22 +507,22 @@ class OneToOneContactInvitationProtocol(
                 BobProcessesSyncRequestStep::class.java
             )
 
-            INVITATION_SENT_STATE_ID -> return arrayOf<Class<*>>(
+            INVITATION_SENT_STATE_ID -> return arrayOf(
                 AliceReceivesBobsResponseStep::class.java,
                 AliceAbortsHerInvitationToBobStep::class.java,
                 ProcessContactUpgradedToOneToOneStep::class.java,
                 AliceProcessesPropagatedAbortStep::class.java
             )
 
-            INVITATION_RECEIVED_STATE_ID -> return arrayOf<Class<*>>(
+            INVITATION_RECEIVED_STATE_ID -> return arrayOf(
                 BobRespondsToAlicesInvitationStep::class.java,
                 BobProcessesAbortStep::class.java,
                 BobProcessesPropagatedResponseStep::class.java,
                 ProcessContactUpgradedToOneToOneStep::class.java
             )
 
-            FINISHED_STATE_ID -> return arrayOf<Class<*>>()
-            else -> return arrayOf<Class<*>>()
+            FINISHED_STATE_ID -> return arrayOf()
+            else -> return arrayOf()
         }
     }
 

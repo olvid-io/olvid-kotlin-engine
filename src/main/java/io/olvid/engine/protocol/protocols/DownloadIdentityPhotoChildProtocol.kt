@@ -209,13 +209,13 @@ class DownloadIdentityPhotoChildProtocol(
     // region Steps
     override fun getPossibleStepClasses(stateId: Int): Array<Class<*>> {
         when (stateId) {
-            ConcreteProtocol.INITIAL_STATE_ID -> return arrayOf<Class<*>>(
+            ConcreteProtocol.INITIAL_STATE_ID -> return arrayOf(
                 QueryServerStep::class.java
             )
 
-            DOWNLOADING_PHOTO_STATE_ID -> return arrayOf<Class<*>>(ProcessPhotoStep::class.java)
-            PHOTO_DOWNLOADED_STATE_ID -> return arrayOf<Class<*>>()
-            else -> return arrayOf<Class<*>>()
+            DOWNLOADING_PHOTO_STATE_ID -> return arrayOf(ProcessPhotoStep::class.java)
+            PHOTO_DOWNLOADED_STATE_ID -> return arrayOf()
+            else -> return arrayOf()
         }
     }
 

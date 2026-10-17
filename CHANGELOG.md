@@ -1,3 +1,9 @@
+# Version 1.3.0
+2026-10-17
+
+- Add an anti-replay mechanism for pre-key encrypted messages (DB schema change).
+- Added some safeguards in Encoded decoding functions.
+
 # Version 1.2.5
 2026-10-17
 

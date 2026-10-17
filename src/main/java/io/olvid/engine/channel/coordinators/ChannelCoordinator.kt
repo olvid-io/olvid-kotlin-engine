@@ -198,6 +198,25 @@ class ChannelCoordinator(private val channelManagerSessionFactory: ChannelManage
             }
         }
 
+        // for preKey encrypted messages that are actually processed (not put on hold), record their signature to prevent any replay
+        // Note: this cannot be done in unwrapWithPreKey() as messages put on hold are unwrapped again when the contact is added
+        if (authEncKeyAndChannelInfo.preKeyId != null && authEncKeyAndChannelInfo.preKeySignature != null) {
+            if (channelManagerSession.preKeyEncryptionDelegate?.recordPreKeySignatureReceived(
+                    channelManagerSession.session,
+                    authEncKeyAndChannelInfo.preKeyId,
+                    authEncKeyAndChannelInfo.preKeySignature
+                ) != true
+            ) {
+                Logger.w("Unable to record the signature of a preKey message, discarding it")
+                channelManagerSession.networkFetchDelegate.deleteMessageAndAttachments(
+                    channelManagerSession.session,
+                    networkReceivedMessage.ownedIdentity,
+                    networkReceivedMessage.getMessageUid()
+                )
+                return
+            }
+        }
+
         when (channelReceivedMessage.messageType) {
             MessageType.PROTOCOL_MESSAGE_TYPE -> {
                 if (channelManagerSession.protocolDelegate == null) {

@@ -250,7 +250,7 @@ class ContactManagementProtocol(
     // region Steps
     override fun getPossibleStepClasses(stateId: Int): Array<Class<*>> {
         if (stateId == ConcreteProtocol.INITIAL_STATE_ID) {
-            return arrayOf<Class<*>>(
+            return arrayOf(
                 DeleteContactStep::class.java,
                 ProcessContactDeletionNotificationStep::class.java,
                 ProcessPropagatedContactDeletionStep::class.java,
@@ -260,7 +260,7 @@ class ContactManagementProtocol(
                 ProcessPerformContactDeviceDiscoveryMessageStep::class.java,
             )
         }
-        return arrayOf<Class<*>>()
+        return arrayOf()
     }
 
 

@@ -1745,7 +1745,7 @@ class GroupsV2Protocol(
     // region Steps
     override fun getPossibleStepClasses(stateId: Int): Array<Class<*>> {
         when (stateId) {
-            ConcreteProtocol.INITIAL_STATE_ID -> return arrayOf<Class<*>>(
+            ConcreteProtocol.INITIAL_STATE_ID -> return arrayOf(
                 InitiateGroupCreationStep::class.java,
                 ProcessInvitationOrMembersUpdateStep::class.java,
                 DoNothingAfterServerQueryStep::class.java,
@@ -1762,12 +1762,12 @@ class GroupsV2Protocol(
                 ProcessReceivedPreShotVersionSeedStep::class.java
             )
 
-            UPLOADING_CREATED_GROUP_DATA_STATE_ID -> return arrayOf<Class<*>>(
+            UPLOADING_CREATED_GROUP_DATA_STATE_ID -> return arrayOf(
                 CheckIfGroupCreationCanBeFinalizedStep::class.java,
                 FinalizeGroupCreationStep::class.java
             )
 
-            DOWNLOADING_GROUP_BLOB_STATE_ID -> return arrayOf<Class<*>>(
+            DOWNLOADING_GROUP_BLOB_STATE_ID -> return arrayOf(
                 ProcessDownloadedGroupDataStep::class.java,
                 ProcessInvitationDialogResponseStep::class.java,
                 LeaveGroupStep::class.java,
@@ -1776,7 +1776,7 @@ class GroupsV2Protocol(
                 ProcessReceivedPreShotVersionSeedStep::class.java
             )
 
-            I_NEED_MORE_SEEDS_STATE_ID -> return arrayOf<Class<*>>(
+            I_NEED_MORE_SEEDS_STATE_ID -> return arrayOf(
                 ProcessInvitationOrMembersUpdateStep::class.java,
                 ProcessInvitationDialogResponseStep::class.java,
                 LeaveGroupStep::class.java,
@@ -1785,7 +1785,7 @@ class GroupsV2Protocol(
                 InitiateBlobReDownloadStep::class.java
             )
 
-            INVITATION_RECEIVED_STATE_ID -> return arrayOf<Class<*>>(
+            INVITATION_RECEIVED_STATE_ID -> return arrayOf(
                 ProcessInvitationOrMembersUpdateStep::class.java,
                 ProcessInvitationDialogResponseStep::class.java,
                 InitiateBlobReDownloadStep::class.java,
@@ -1794,11 +1794,11 @@ class GroupsV2Protocol(
                 ProcessReceivedPreShotVersionSeedStep::class.java
             )
 
-            REJECTING_INVITATION_OR_LEAVING_GROUP_STATE_ID -> return arrayOf<Class<*>>(
+            REJECTING_INVITATION_OR_LEAVING_GROUP_STATE_ID -> return arrayOf(
                 NotifyMembersOfRejectionOrGroupLeftStep::class.java
             )
 
-            WAITING_FOR_LOCK_STATE_ID -> return arrayOf<Class<*>>(
+            WAITING_FOR_LOCK_STATE_ID -> return arrayOf(
                 PrepareBlobForGroupUpdateStep::class.java,
                 GetKickedStep::class.java,
                 LeaveGroupStep::class.java,
@@ -1806,19 +1806,19 @@ class GroupsV2Protocol(
                 ProcessReceivedPreShotVersionSeedStep::class.java
             )
 
-            UPLOADING_UPDATED_GROUP_BLOB_STATE_ID -> return arrayOf<Class<*>>(
+            UPLOADING_UPDATED_GROUP_BLOB_STATE_ID -> return arrayOf(
                 ProcessGroupUpdateBlobUploadResponseStep::class.java,
                 DisbandGroupStep::class.java
             )
 
-            UPLOADING_UPDATED_GROUP_PHOTO_STATE_ID -> return arrayOf<Class<*>>(
+            UPLOADING_UPDATED_GROUP_PHOTO_STATE_ID -> return arrayOf(
                 ProcessGroupUpdatePhotoUploadResponseStep::class.java,
                 FinalizeGroupUpdateStep::class.java,
                 DisbandGroupStep::class.java
             )
 
-            DISBANDING_GROUP_STATE_ID -> return arrayOf<Class<*>>(FinalizeGroupDisbandStep::class.java)
-            else -> return arrayOf<Class<*>>()
+            DISBANDING_GROUP_STATE_ID -> return arrayOf(FinalizeGroupDisbandStep::class.java)
+            else -> return arrayOf()
         }
     }
 
@@ -2859,6 +2859,18 @@ class GroupsV2Protocol(
             }
 
             invitationCollectedData.addBlobKeysCandidates(obliviousChannelContactIdentity, blobKeys)
+
+            // without any main seed candidate, the downloaded blob could not be decrypted: do not query the server and wait for more seeds
+            if (invitationCollectedData.inviterIdentityAndBlobMainSeedCandidates.isEmpty()) {
+                return INeedMoreSeedsState(
+                    groupIdentifier,
+                    dialogUuid,
+                    invitationCollectedData,
+                    ownInvitationNoncesAcceptedOnOtherDevices,
+                    lastKnownOwnInvitationNonce,
+                    lastKnownOtherGroupMemberIdentities
+                )
+            }
 
             val serverQueryNonce = prng.bytes(16)
             run {
@@ -4874,19 +4886,6 @@ class GroupsV2Protocol(
                 receivedMessage.logEntries
             ).toSet()
 
-            // if we have not yet pre-shot a seed (because this group update did not remove any member) but there are some consolidatedLogLeavers, we need to rotate the seed
-            // also, if we did pre-shot a new seed, but we sent it to some of these consolidatedLogLeavers, we should generate a new seed and pre-shoot it too.
-            val needToPreShootANewSeed = consolidatedLogLeavers.isNotEmpty() && (
-                    startState.preShotVersionSeed == null ||
-                            protocolManagerSession.identityDelegate.getGroupV2OtherMembersAndPermissions(
-                                protocolManagerSession.session,
-                                ownedIdentity,
-                                startState.groupIdentifier
-                            )?.any { member ->
-                                consolidatedLogLeavers.contains(member.identity)
-                                        && startState.changeSet.removedMembers.none { it.contentEquals(member.identity.getBytes()) }
-                            } ?: false
-                    )
 
             // check if there is anything to change in the blob, based on the received changeSet
             var changed = false
@@ -5182,17 +5181,30 @@ class GroupsV2Protocol(
 
 
             var preShotVersionSeed = startState.preShotVersionSeed
+
+            val dbMemberIdentities =
+                protocolManagerSession.identityDelegate.getGroupV2OtherMembersAndPermissions(
+                    protocolManagerSession.session,
+                    ownedIdentity,
+                    startState.groupIdentifier
+                )?.map { it.identity }
+            val updatedBlobMemberIdentities = members.mapTo(mutableSetOf()) { it.identity }
+
+            // If we have not yet pre-shot a seed (because this group update did not remove any member) but there are some consolidatedLogLeavers, we need to rotate the seed.
+            // Also, if we did pre-shoot a new seed, but we sent it to some users who are no longer part of the group, we should generate a new seed and pre-shoot it too.
+            val needToPreShootANewSeed =
+                if (preShotVersionSeed == null)
+                    consolidatedLogLeavers.isNotEmpty()
+                else
+                    dbMemberIdentities?.any { memberIdentity ->
+                        !updatedBlobMemberIdentities.contains(memberIdentity)
+                                && startState.changeSet.removedMembers.none { it.contentEquals(memberIdentity.getBytes()) }
+                    } ?: false
+
             if (needToPreShootANewSeed) {
                 preShotVersionSeed = Seed(prng = prng)
 
                 // pre-shoot this new seed to all group members that are still in the consolidated blob
-                val dbMemberIdentities =
-                    protocolManagerSession.identityDelegate.getGroupV2OtherMembersAndPermissions(
-                        protocolManagerSession.session,
-                        ownedIdentity,
-                        startState.groupIdentifier
-                    )?.map { it.identity }
-                val updatedBlobMemberIdentities = members.mapTo(mutableSetOf()) { it.identity }
 
                 // build the list of all identities to notify
                 val toIdentities: MutableList<Identity> = ArrayList()

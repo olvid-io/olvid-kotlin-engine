@@ -22,7 +22,7 @@ import java.nio.charset.StandardCharsets
 
 
 object Constants {
-    const val CURRENT_ENGINE_DB_SCHEMA_VERSION: Int = 52
+    const val CURRENT_ENGINE_DB_SCHEMA_VERSION: Int = 53
     const val SERVER_API_VERSION: Int = 21
     const val CURRENT_BACKUP_JSON_VERSION: Int = 0
 

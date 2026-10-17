@@ -836,10 +836,10 @@ class ProtocolManager(
         )
         val message: ChannelMessageToSend? =
             ChannelCreationWithContactDeviceProtocol.InitialMessage(
-            coreProtocolMessage,
-            contactIdentity!!,
-            contactDeviceUid!!
-        ).generateChannelProtocolMessageToSend()
+                coreProtocolMessage,
+                contactIdentity!!,
+                contactDeviceUid!!
+            ).generateChannelProtocolMessageToSend()
         protocolManagerSession.channelDelegate!!.post(session, message, prng)
     }
 
@@ -1090,10 +1090,10 @@ class ProtocolManager(
             )
             val message: ChannelMessageToSend? =
                 ChannelCreationWithContactDeviceProtocol.InitialMessage(
-            coreProtocolMessage,
-            contactIdentity,
-            contactDeviceUid!!
-        ).generateChannelProtocolMessageToSend()
+                    coreProtocolMessage,
+                    contactIdentity,
+                    contactDeviceUid!!
+                ).generateChannelProtocolMessageToSend()
             protocolManagerSession.channelDelegate!!.post(
                 protocolManagerSession.session,
                 message,

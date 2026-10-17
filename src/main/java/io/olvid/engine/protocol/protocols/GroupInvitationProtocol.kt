@@ -403,18 +403,18 @@ class GroupInvitationProtocol(
     // region steps
     override fun getPossibleStepClasses(stateId: Int): Array<Class<*>> {
         when (stateId) {
-            ConcreteProtocol.INITIAL_STATE_ID -> return arrayOf<Class<*>>(
+            ConcreteProtocol.INITIAL_STATE_ID -> return arrayOf(
                 SendInvitationStep::class.java,
                 ProcessInvitationStep::class.java,
                 ProcessResponseStep::class.java
             )
 
-            INVITATION_RECEIVED_STATE_ID -> return arrayOf<Class<*>>(
+            INVITATION_RECEIVED_STATE_ID -> return arrayOf(
                 ProcessInvitationDialogResponseStep::class.java,
                 ProcessPropagatedInvitationResponseStep::class.java
             )
 
-            else -> return arrayOf<Class<*>>()
+            else -> return arrayOf()
         }
     }
 

@@ -18,12 +18,16 @@
  */
 package io.olvid.engine.datatypes.containers
 
+import io.olvid.engine.datatypes.KeyId
 import io.olvid.engine.datatypes.key.symmetric.AuthEncKey
 
 
 class AuthEncKeyAndChannelInfo(
     @JvmField val authEncKey: AuthEncKey?,
-    @JvmField val receptionChannelInfo: ReceptionChannelInfo?
+    @JvmField val receptionChannelInfo: ReceptionChannelInfo?,
+    // only set for messages received through a pre-key channel: used to prevent the replay of these messages
+    @JvmField val preKeyId: KeyId? = null,
+    @JvmField val preKeySignature: ByteArray? = null,
 ) {
     fun getAuthEncKey(): AuthEncKey? = authEncKey
     fun getReceptionChannelInfo(): ReceptionChannelInfo? = receptionChannelInfo

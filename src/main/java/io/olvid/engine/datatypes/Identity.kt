@@ -138,7 +138,7 @@ class Identity : Comparable<Identity> {
                 throw DecodingException()
             }
             val anonAuthPkLength = EncryptionPublicKey.getCompactKeyLength(identityBytes[pos])
-            if (anonAuthPkLength < 0 || pos + anonAuthPkLength > identityBytes.size) {
+            if (anonAuthPkLength < 0 || pos + anonAuthPkLength != identityBytes.size) {
                 throw DecodingException()
             }
             val encryptionPublicKey = EncryptionPublicKey.of(identityBytes.copyOfRange(pos, pos + anonAuthPkLength))

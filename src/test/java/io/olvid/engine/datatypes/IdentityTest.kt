@@ -225,6 +225,23 @@ class IdentityTest {
         } catch (_: DecodingException) {
             // expected
         }
+
+        // 6. Trailing bytes after the anon key
+        val zeroSeed = Seed(ByteArray(32))
+        val prng = Suite.getDefaultPRNGService(0)
+        prng.reseed(zeroSeed)
+        val validBytes = Identity(
+            "server",
+            ServerAuthenticationECSdsaCurve25519KeyPair.generate(prng).publicKey as ServerAuthenticationPublicKey,
+            EncryptionEciesCurve25519KeyPair.generate(prng).publicKey as EncryptionPublicKey
+        ).getBytes()
+        Identity.of(validBytes)
+        try {
+            Identity.of(validBytes + byteArrayOf(0))
+            fail("Expected DecodingException")
+        } catch (_: DecodingException) {
+            // expected
+        }
     }
 
     @Test

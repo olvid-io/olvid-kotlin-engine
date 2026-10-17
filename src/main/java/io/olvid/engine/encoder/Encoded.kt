@@ -185,8 +185,11 @@ class Encoded(val bytes: ByteArray) {
         if (this.bytes[0] != BYTE_IDS_LIST) {
             throw DecodingException()
         }
+        if (bytes.size < 5) {
+            throw DecodingException()
+        }
         val totalLen: Int = uint32FromBytes(this.bytes, 1)
-        if (totalLen + 5 > bytes.size) {
+        if (totalLen < 0 || totalLen > bytes.size - 5) {
             throw DecodingException()
         }
 
@@ -194,7 +197,7 @@ class Encoded(val bytes: ByteArray) {
         var offset = 5
         while (offset + 4 < totalLen + 5) {
             val len: Int = uint32FromBytes(this.bytes, offset + 1)
-            if (offset + 5 + len > totalLen + 5) {
+            if (len < 0 || len > totalLen - offset) {
                 throw DecodingException()
             }
             val elem = Encoded(
@@ -202,6 +205,9 @@ class Encoded(val bytes: ByteArray) {
             )
             list.add(elem)
             offset += 5 + len
+        }
+        if (offset != totalLen + 5) {
+            throw DecodingException()
         }
         return list.toTypedArray()
     }
@@ -220,7 +226,7 @@ class Encoded(val bytes: ByteArray) {
         var offset = 5
         while (offset + 4 < bytes.size) {
             val len: Int = uint32FromBytes(this.bytes, offset + 1)
-            if (offset + 5 + len > bytes.size) {
+            if (len < 0 || len > bytes.size - offset - 5) {
                 throw DecodingException()
             }
             val elem = Encoded(
@@ -228,6 +234,9 @@ class Encoded(val bytes: ByteArray) {
             )
             list.add(elem)
             offset += 5 + len
+        }
+        if (offset != bytes.size) {
+            throw DecodingException()
         }
         return list.toTypedArray()
     }
@@ -241,7 +250,7 @@ class Encoded(val bytes: ByteArray) {
         var offset = 5
         while (offset + 4 < bytes.size) {
             var len: Int = uint32FromBytes(this.bytes, offset + 1)
-            if (offset + 5 + len > bytes.size) {
+            if (len < 0 || len > bytes.size - offset - 5) {
                 throw DecodingException()
             }
             // Here we do two copyOfRange -> this could be optimized to a single one, assuming we reimplement the decodeBytes checks
@@ -256,7 +265,7 @@ class Encoded(val bytes: ByteArray) {
                 throw DecodingException()
             }
             len = uint32FromBytes(this.bytes, offset + 1)
-            if (offset + 5 + len > bytes.size) {
+            if (len < 0 || len > bytes.size - offset - 5) {
                 throw DecodingException()
             }
             val value = Encoded(
@@ -264,6 +273,9 @@ class Encoded(val bytes: ByteArray) {
             )
             offset += 5 + len
             dict[key] = value
+        }
+        if (offset != bytes.size) {
+            throw DecodingException()
         }
         return dict
     }
@@ -274,8 +286,11 @@ class Encoded(val bytes: ByteArray) {
         if (this.bytes[0] != BYTE_IDS_DICTIONARY) {
             throw DecodingException()
         }
+        if (bytes.size < 5) {
+            throw DecodingException()
+        }
         val totalLen: Int = uint32FromBytes(this.bytes, 1)
-        if (totalLen + 5 > bytes.size) {
+        if (totalLen < 0 || totalLen > bytes.size - 5) {
             throw DecodingException()
         }
 
@@ -283,7 +298,7 @@ class Encoded(val bytes: ByteArray) {
         var offset = 5
         while (offset + 4 < totalLen + 5) {
             var len: Int = uint32FromBytes(this.bytes, offset + 1)
-            if (offset + 5 + len > totalLen + 5) {
+            if (len < 0 || len > totalLen - offset) {
                 throw DecodingException()
             }
             // Here we do two copyOfRange -> this could be optimized to a single one, assuming we reimplement the decodeBytes checks
@@ -298,7 +313,7 @@ class Encoded(val bytes: ByteArray) {
                 throw DecodingException()
             }
             len = uint32FromBytes(this.bytes, offset + 1)
-            if (offset + 5 + len > totalLen + 5) {
+            if (len < 0 || len > totalLen - offset) {
                 throw DecodingException()
             }
             val value = Encoded(
@@ -306,6 +321,9 @@ class Encoded(val bytes: ByteArray) {
             )
             offset += 5 + len
             dict[key] = value
+        }
+        if (offset != totalLen + 5) {
+            throw DecodingException()
         }
         return dict
     }
@@ -404,7 +422,7 @@ class Encoded(val bytes: ByteArray) {
             }
 
             val len: Int = uint32FromBytes(bytes, 1)
-            if (bytes.size < len + 5) {
+            if (len < 0 || len > bytes.size - 5) {
                 throw DecodingException()
             }
             return Encoded(bytes.copyOfRange(0, 5 + len))

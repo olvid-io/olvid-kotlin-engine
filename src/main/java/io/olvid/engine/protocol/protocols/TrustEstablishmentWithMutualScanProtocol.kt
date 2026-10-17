@@ -323,16 +323,16 @@ class TrustEstablishmentWithMutualScanProtocol(
     // region Steps
     override fun getPossibleStepClasses(stateId: Int): Array<Class<*>> {
         when (stateId) {
-            INITIAL_MESSAGE_ID -> return arrayOf<Class<*>>(
+            INITIAL_MESSAGE_ID -> return arrayOf(
                 AliceSendStep::class.java,
                 AliceHandlesPropagatedQRCodeStep::class.java,
                 BobAddsContactAndConfirmsStep::class.java,
                 BobHandlesPropagatedSignatureStep::class.java,
             )
 
-            WAITING_FOR_CONFIRMATION_STATE_ID -> return arrayOf<Class<*>>(AliceAddsContactStep::class.java)
-            FINISHED_STATE_ID -> return arrayOf<Class<*>>()
-            else -> return arrayOf<Class<*>>()
+            WAITING_FOR_CONFIRMATION_STATE_ID -> return arrayOf(AliceAddsContactStep::class.java)
+            FINISHED_STATE_ID -> return arrayOf()
+            else -> return arrayOf()
         }
     }
 

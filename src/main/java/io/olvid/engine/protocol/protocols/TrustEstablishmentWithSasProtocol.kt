@@ -783,35 +783,35 @@ class TrustEstablishmentWithSasProtocol(
     // region Steps
     public override fun getPossibleStepClasses(stateId: Int): Array<Class<*>> {
         when (stateId) {
-            ConcreteProtocol.INITIAL_STATE_ID -> return arrayOf<Class<*>>(
+            ConcreteProtocol.INITIAL_STATE_ID -> return arrayOf(
                 SendCommitmentStep::class.java,
                 StoreDecommitmentStep::class.java,
                 StoreAndPropagateCommitmentAndAskForConfirmationStep::class.java,
                 StoreCommitmentAndAskForConfirmationStep::class.java,
             )
 
-            WAITING_FOR_CONFIRMATION_STATE_ID -> return arrayOf<Class<*>>(
+            WAITING_FOR_CONFIRMATION_STATE_ID -> return arrayOf(
                 SendSeedAndPropagateConfirmationStep::class.java,
                 ReceivedConfirmationFromOtherDeviceStep::class.java,
             )
 
-            WAITING_FOR_SEED_STATE_ID -> return arrayOf<Class<*>>(
+            WAITING_FOR_SEED_STATE_ID -> return arrayOf(
                 ShowSasDialogAndSendDecommitmentStep::class.java
             )
 
-            WAITING_FOR_DECOMMITMENT_STATE_ID -> return arrayOf<Class<*>>(ShowSasDialogStep::class.java)
-            WAITING_FOR_USER_SAS_STATE_ID -> return arrayOf<Class<*>>(
+            WAITING_FOR_DECOMMITMENT_STATE_ID -> return arrayOf(ShowSasDialogStep::class.java)
+            WAITING_FOR_USER_SAS_STATE_ID -> return arrayOf(
                 CheckPropagatedSasStep::class.java,
                 CheckSasStep::class.java,
             )
 
-            CONTACT_IDENTITY_TRUSTED_LEGACY_STATE_ID -> return arrayOf<Class<*>>(
+            CONTACT_IDENTITY_TRUSTED_LEGACY_STATE_ID -> return arrayOf(
                 NotifiedMutualTrustEstablishedLegacyStep::class.java
             )
 
-            CONTACT_SAS_CHECKED_STATE_ID -> return arrayOf<Class<*>>(AddTrustStep::class.java)
-            CANCELLED_STATE_ID, MUTUAL_TRUST_CONFIRMED_STATE_ID -> return arrayOf<Class<*>>()
-            else -> return arrayOf<Class<*>>()
+            CONTACT_SAS_CHECKED_STATE_ID -> return arrayOf(AddTrustStep::class.java)
+            CANCELLED_STATE_ID, MUTUAL_TRUST_CONFIRMED_STATE_ID -> return arrayOf()
+            else -> return arrayOf()
         }
     }
 

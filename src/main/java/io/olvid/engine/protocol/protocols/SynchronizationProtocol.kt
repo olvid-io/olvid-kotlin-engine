@@ -327,13 +327,13 @@ class SynchronizationProtocol(
     // region Steps
     override fun getPossibleStepClasses(stateId: Int): Array<Class<*>> {
         when (stateId) {
-            ConcreteProtocol.INITIAL_STATE_ID -> return arrayOf<Class<*>>(
+            ConcreteProtocol.INITIAL_STATE_ID -> return arrayOf(
                 SendSingleItemSyncMessageStep::class.java,
                 ProcessSingleItemSyncMessageStep::class.java /*, UpdateStateAndSendSyncMessageStep.class*/
             )
 
-            FINAL_STATE_ID -> return arrayOf<Class<*>>()
-            else -> return arrayOf<Class<*>>()
+            FINAL_STATE_ID -> return arrayOf()
+            else -> return arrayOf()
         }
     }
 

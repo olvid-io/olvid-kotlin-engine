@@ -449,23 +449,23 @@ class KeycloakContactAdditionProtocol(
     // region Steps
     override fun getPossibleStepClasses(stateId: Int): Array<Class<*>> {
         when (stateId) {
-            ConcreteProtocol.INITIAL_STATE_ID -> return arrayOf<Class<*>>(
+            ConcreteProtocol.INITIAL_STATE_ID -> return arrayOf(
                 VerifyContactAndStartDeviceDiscoveryStep::class.java,
                 ProcessPropagatedContactAdditionStep::class.java,
                 ProcessReceivedKeycloakInviteStep::class.java
             )
 
-            WAITING_FOR_DEVICE_DISCOVERY_STATED_ID -> return arrayOf<Class<*>>(
+            WAITING_FOR_DEVICE_DISCOVERY_STATED_ID -> return arrayOf(
                 AddContactAndSendRequestStep::class.java
             )
 
-            WAITING_FOR_CONFIRMATION_STATE_ID -> return arrayOf<Class<*>>(ProcessConfirmationStep::class.java)
-            CHECKING_FOR_REVOCATION_STATE_ID -> return arrayOf<Class<*>>(
+            WAITING_FOR_CONFIRMATION_STATE_ID -> return arrayOf(ProcessConfirmationStep::class.java)
+            CHECKING_FOR_REVOCATION_STATE_ID -> return arrayOf(
                 AddContactAndSendConfirmationStep::class.java
             )
 
-            FINISHED_STATE_ID -> return arrayOf<Class<*>>()
-            else -> return arrayOf<Class<*>>()
+            FINISHED_STATE_ID -> return arrayOf()
+            else -> return arrayOf()
         }
     }
 

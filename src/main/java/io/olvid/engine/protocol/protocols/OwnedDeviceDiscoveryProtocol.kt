@@ -218,14 +218,14 @@ class OwnedDeviceDiscoveryProtocol(
     // region Steps
     override fun getPossibleStepClasses(stateId: Int): Array<Class<*>> {
         when (stateId) {
-            ConcreteProtocol.INITIAL_STATE_ID -> return arrayOf<Class<*>>(
+            ConcreteProtocol.INITIAL_STATE_ID -> return arrayOf(
                 SendRequestStep::class.java
             )
 
-            REQUEST_SENT_STATE_ID -> return arrayOf<Class<*>>(ProcessResponseStateStep::class.java)
-            UPLOADING_PRE_KEY_STATE_ID -> return arrayOf<Class<*>>(PreKeyUploadedStep::class.java)
-            FINISHED_STATE_ID, CANCELLED_STATE_ID -> return arrayOf<Class<*>>()
-            else -> return arrayOf<Class<*>>()
+            REQUEST_SENT_STATE_ID -> return arrayOf(ProcessResponseStateStep::class.java)
+            UPLOADING_PRE_KEY_STATE_ID -> return arrayOf(PreKeyUploadedStep::class.java)
+            FINISHED_STATE_ID, CANCELLED_STATE_ID -> return arrayOf()
+            else -> return arrayOf()
         }
     }
 

@@ -511,22 +511,22 @@ class ChannelCreationWithOwnedDeviceProtocol(
     //region Steps
     public override fun getPossibleStepClasses(stateId: Int): Array<Class<*>> {
         when (stateId) {
-            ConcreteProtocol.INITIAL_STATE_ID -> return arrayOf<Class<*>>(
+            ConcreteProtocol.INITIAL_STATE_ID -> return arrayOf(
                 SendPingStep::class.java,
                 SendPingOrEphemeralKeyStep::class.java,
                 SendEphemeralKeyAndK1Step::class.java
             )
 
-            WAITING_FOR_K1_STATE_ID -> return arrayOf<Class<*>>(
+            WAITING_FOR_K1_STATE_ID -> return arrayOf(
                 RecoverK1AndSendK2AndCreateChannelStep::class.java
             )
 
-            WAITING_FOR_K2_STATE_ID -> return arrayOf<Class<*>>(RecoverK2CreateChannelAndSendAckStep::class.java)
-            WAIT_FOR_FIRST_ACK_STATE_ID -> return arrayOf<Class<*>>(ConfirmChannelAndSendAckStep::class.java)
-            WAIT_FOR_SECOND_ACK_STATE_ID -> return arrayOf<Class<*>>(ConfirmChannelStep::class.java)
-            CANCELLED_STATE_ID, PING_SENT_STATE_ID, CHANNEL_CONFIRMED_STATE_ID -> return arrayOf<Class<*>>()
+            WAITING_FOR_K2_STATE_ID -> return arrayOf(RecoverK2CreateChannelAndSendAckStep::class.java)
+            WAIT_FOR_FIRST_ACK_STATE_ID -> return arrayOf(ConfirmChannelAndSendAckStep::class.java)
+            WAIT_FOR_SECOND_ACK_STATE_ID -> return arrayOf(ConfirmChannelStep::class.java)
+            CANCELLED_STATE_ID, PING_SENT_STATE_ID, CHANNEL_CONFIRMED_STATE_ID -> return arrayOf()
 
-            else -> return arrayOf<Class<*>>()
+            else -> return arrayOf()
         }
     }
 

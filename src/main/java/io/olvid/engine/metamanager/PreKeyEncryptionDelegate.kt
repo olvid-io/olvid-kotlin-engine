@@ -21,6 +21,7 @@ package io.olvid.engine.metamanager
 import io.olvid.engine.crypto.PRNGService
 import io.olvid.engine.datatypes.EncryptedBytes
 import io.olvid.engine.datatypes.Identity
+import io.olvid.engine.datatypes.KeyId
 import io.olvid.engine.datatypes.Session
 import io.olvid.engine.datatypes.UID
 import io.olvid.engine.datatypes.containers.AuthEncKeyAndChannelInfo
@@ -42,4 +43,13 @@ interface PreKeyEncryptionDelegate {
         wrappedKey: EncryptedBytes?,
         ownedIdentity: Identity?
     ): AuthEncKeyAndChannelInfo?
+
+    // record the signature of a message received through a pre-key channel, once this message is actually processed,
+    // so that any replay of this message gets rejected by unwrapWithPreKey(). Returns false if the signature could not
+    // be recorded (typically, if it was already recorded).
+    fun recordPreKeySignatureReceived(
+        session: Session,
+        preKeyId: KeyId,
+        signature: ByteArray
+    ): Boolean
 }

@@ -422,28 +422,28 @@ class FullRatchetProtocol(
     // region Steps
     override fun getPossibleStepClasses(stateId: Int): Array<Class<*>> {
         when (stateId) {
-            ConcreteProtocol.INITIAL_STATE_ID -> return arrayOf<Class<*>>(
+            ConcreteProtocol.INITIAL_STATE_ID -> return arrayOf(
                 AliceSendEphemeralKeyStep::class.java,
                 BobSendEphemeralKeyAndK1Step::class.java
             )
 
-            ALICE_WAITING_FOR_K1_STATE_ID -> return arrayOf<Class<*>>(
+            ALICE_WAITING_FOR_K1_STATE_ID -> return arrayOf(
                 AliceRecoverK1AndSendK2Step::class.java,
                 AliceResendEphemeralKeyStep::class.java
             )
 
-            BOB_WAITING_FOR_K2_STATE_ID -> return arrayOf<Class<*>>(
+            BOB_WAITING_FOR_K2_STATE_ID -> return arrayOf(
                 BobRecoverK2ToUpdateReceiveSeedAndSendAckStep::class.java,
                 BobSendEphemeralKeyAndK1Step::class.java
             )
 
-            ALICE_WAITING_FOR_ACK_STATE_ID -> return arrayOf<Class<*>>(
+            ALICE_WAITING_FOR_ACK_STATE_ID -> return arrayOf(
                 AliceUpdateSendSeedStep::class.java,
                 AliceResendEphemeralKeyStep::class.java
             )
 
-            FULL_RATCHET_DONE_STATE_ID -> return arrayOf<Class<*>>()
-            else -> return arrayOf<Class<*>>()
+            FULL_RATCHET_DONE_STATE_ID -> return arrayOf()
+            else -> return arrayOf()
         }
     }
 

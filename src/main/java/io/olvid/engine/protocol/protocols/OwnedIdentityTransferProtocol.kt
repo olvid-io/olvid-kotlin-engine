@@ -1018,59 +1018,59 @@ class OwnedIdentityTransferProtocol(
     // region Steps
     override fun getPossibleStepClasses(stateId: Int): Array<Class<*>> {
         when (stateId) {
-            ConcreteProtocol.INITIAL_STATE_ID -> return arrayOf<Class<*>>(
+            ConcreteProtocol.INITIAL_STATE_ID -> return arrayOf(
                 InitiateTransferOnSourceDeviceStep::class.java,
                 InitiateTransferOnTargetDeviceStep::class.java
             )
 
-            SOURCE_WAITING_FOR_SESSION_NUMBER_STATE_ID -> return arrayOf<Class<*>>(
+            SOURCE_WAITING_FOR_SESSION_NUMBER_STATE_ID -> return arrayOf(
                 SourceDisplaysSessionNumberStep::class.java,
                 UserInitiatedAbortProtocolStep::class.java
             )
 
-            SOURCE_WAITING_FOR_TARGET_CONNECTION_STATE_ID -> return arrayOf<Class<*>>(
+            SOURCE_WAITING_FOR_TARGET_CONNECTION_STATE_ID -> return arrayOf(
                 SourceSendsTransferredIdentityAndCommitmentStep::class.java,
                 UserInitiatedAbortProtocolStep::class.java
             )
 
-            TARGET_WAITING_FOR_SESSION_NUMBER_STATE_ID -> return arrayOf<Class<*>>(
+            TARGET_WAITING_FOR_SESSION_NUMBER_STATE_ID -> return arrayOf(
                 TargetProcessesSessionNumberAndSendsEphemeralIdentityStep::class.java
             )
 
-            TARGET_WAITING_FOR_TRANSFERRED_IDENTITY_STATE_ID -> return arrayOf<Class<*>>(
+            TARGET_WAITING_FOR_TRANSFERRED_IDENTITY_STATE_ID -> return arrayOf(
                 TargetSendsSeedStep::class.java,
                 UserInitiatedAbortProtocolStep::class.java
             )
 
-            SOURCE_WAITING_FOR_TARGET_SEED_STATE_ID -> return arrayOf<Class<*>>(
+            SOURCE_WAITING_FOR_TARGET_SEED_STATE_ID -> return arrayOf(
                 SourceSendsDecommitmentAndShowsSasInputStep::class.java,
                 UserInitiatedAbortProtocolStep::class.java
             )
 
-            TARGET_WAITING_FOR_DECOMMITMENT_STATE_ID -> return arrayOf<Class<*>>(
+            TARGET_WAITING_FOR_DECOMMITMENT_STATE_ID -> return arrayOf(
                 TargetShowsSasStep::class.java,
                 UserInitiatedAbortProtocolStep::class.java
             )
 
-            SOURCE_WAITING_FOR_SAS_INPUT_STATE_ID -> return arrayOf<Class<*>>(
+            SOURCE_WAITING_FOR_SAS_INPUT_STATE_ID -> return arrayOf(
                 SourceCheckSasInputAndSendSnapshotStep::class.java
             )
 
-            TARGET_WAITING_FOR_SNAPSHOT_STATE_ID -> return arrayOf<Class<*>>(
+            TARGET_WAITING_FOR_SNAPSHOT_STATE_ID -> return arrayOf(
                 TargetProcessesSnapshotStep::class.java,
                 UserInitiatedAbortProtocolStep::class.java
             )
 
-            SOURCE_WAIT_FOR_KEYCLOAK_AUTHENTICATION_PROOF_STATE_ID -> return arrayOf<Class<*>>(
+            SOURCE_WAIT_FOR_KEYCLOAK_AUTHENTICATION_PROOF_STATE_ID -> return arrayOf(
                 SourceCheckTransferProofAndSendSnapshotStep::class.java
             )
 
-            TARGET_WAITING_FOR_KEYCLOAK_AUTHENTICATION_PROOF_STATE_ID -> return arrayOf<Class<*>>(
+            TARGET_WAITING_FOR_KEYCLOAK_AUTHENTICATION_PROOF_STATE_ID -> return arrayOf(
                 TargetSendKeycloakAuthenticationProofStep::class.java
             )
 
-            FINAL_STATE_ID -> return arrayOf<Class<*>>()
-            else -> return arrayOf<Class<*>>()
+            FINAL_STATE_ID -> return arrayOf()
+            else -> return arrayOf()
         }
     }
 
@@ -1155,7 +1155,7 @@ class OwnedIdentityTransferProtocol(
             val ownConnectionIdentifier: String?
 
             try {
-                val jsonResponseSource = jsonObjectMapper.readValue<JsonResponseSource>(
+                val jsonResponseSource = jsonObjectMapper.readValue(
                     receivedMessage.serializedJsonResponseSource,
                     JsonResponseSource::class.java
                 )
@@ -1357,7 +1357,7 @@ class OwnedIdentityTransferProtocol(
         }
 
         @Throws(Exception::class)
-        override fun executeStep(): ConcreteProtocolState? {
+        override fun executeStep(): ConcreteProtocolState {
             val protocolManagerSession = protocolManagerSession!!
 
             if (receivedMessage.serializedJsonResponse == null) {
@@ -1487,7 +1487,7 @@ class OwnedIdentityTransferProtocol(
         }
 
         @Throws(Exception::class)
-        override fun executeStep(): ConcreteProtocolState? {
+        override fun executeStep(): ConcreteProtocolState {
             val protocolManagerSession = protocolManagerSession!!
 
             if (receivedMessage.serializedJsonResponse == null) {
@@ -1519,7 +1519,7 @@ class OwnedIdentityTransferProtocol(
 
             val jsonResponse: JsonResponse
             try {
-                jsonResponse = jsonObjectMapper.readValue<JsonResponse>(
+                jsonResponse = jsonObjectMapper.readValue(
                     receivedMessage.serializedJsonResponse,
                     JsonResponse::class.java
                 )
@@ -1658,7 +1658,7 @@ class OwnedIdentityTransferProtocol(
         }
 
         @Throws(Exception::class)
-        override fun executeStep(): ConcreteProtocolState? {
+        override fun executeStep(): ConcreteProtocolState {
             val protocolManagerSession = protocolManagerSession!!
 
             if (receivedMessage.serializedJsonResponse == null) {
@@ -1802,7 +1802,7 @@ class OwnedIdentityTransferProtocol(
         }
 
         @Throws(Exception::class)
-        override fun executeStep(): ConcreteProtocolState? {
+        override fun executeStep(): ConcreteProtocolState {
             val protocolManagerSession = protocolManagerSession!!
 
             if (receivedMessage.serializedJsonResponse == null) {
@@ -2080,7 +2080,7 @@ class OwnedIdentityTransferProtocol(
         }
 
         @Throws(Exception::class)
-        override fun executeStep(): ConcreteProtocolState? {
+        override fun executeStep(): ConcreteProtocolState {
             val protocolManagerSession = protocolManagerSession!!
 
             if (receivedMessage.serializedJsonResponse == null) {
@@ -2201,7 +2201,7 @@ class OwnedIdentityTransferProtocol(
         }
 
         @Throws(Exception::class)
-        override fun executeStep(): ConcreteProtocolState? {
+        override fun executeStep(): ConcreteProtocolState {
             val protocolManagerSession = protocolManagerSession!!
 
             if (receivedMessage.serializedJsonResponse == null) {
@@ -2277,7 +2277,7 @@ class OwnedIdentityTransferProtocol(
                                 plaintext,
                                 JsonKeycloakConfiguration::class.java
                             )
-                        if (jsonKeycloakConfiguration != null && jsonKeycloakConfiguration.server != null && jsonKeycloakConfiguration.cid != null) {
+                        if (jsonKeycloakConfiguration?.server != null && jsonKeycloakConfiguration.cid != null) {
                             val jkcServer = jsonKeycloakConfiguration.server
                             val jkcCid = jsonKeycloakConfiguration.cid
                             // we have received a JsonKeycloakConfiguration that needs to be passed to the app to force authentication
@@ -2331,38 +2331,43 @@ class OwnedIdentityTransferProtocol(
                 return restartStep(protocolManagerSession)
             }
 
+            // make sure the snapshot is for the identity bound by the commitment and the SAS
+            val identityNode = syncSnapshot.getSnapshotNode(wrappedIdentityDelegate.tag!!)
+            if (identityNode !is IdentityManagerSyncSnapshot
+                || !identityNode.owned_identity.contentEquals(startState.transferredIdentity.getBytes())) {
+                Logger.w("OwnedIdentityTransferProtocol.TargetProcessesSnapshotStep snapshot identity does not match the transferred identity")
+                return failProtocol(
+                    this,
+                    startState.dialogUuid,
+                    ObvTransferStep.Fail.FAIL_REASON_INVALID_RESPONSE
+                )
+            }
+
             /**///// */
             // create the list of callbacks and add the sessionCommitListener first, so the delegates get a
             // chance to perform an action before the engine restore notifications start being sent
-            val commitCallbackList: MutableList<RestoreFinishedCallback> =
-                ArrayList<RestoreFinishedCallback>()
-            protocolManagerSession.session.addSessionCommitListener(SessionCommitListener {
+            val commitCallbackList: MutableList<RestoreFinishedCallback> = ArrayList()
+            protocolManagerSession.session.addSessionCommitListener {
                 for (callback in commitCallbackList) {
                     callback.onRestoreSuccess()
                 }
-            })
+            }
 
             try {
                 // create the owned identity (and associated stuff) at engine level
 
-                val node = syncSnapshot.getSnapshotNode(wrappedIdentityDelegate.tag!!)
-                val obvOwnedIdentity: ObvIdentity?
-                if (node is IdentityManagerSyncSnapshot) {
-                    obvOwnedIdentity =
-                        protocolManagerSession.identityDelegate.restoreTransferredOwnedIdentity(
-                            protocolManagerSession.session,
-                            startState.deviceName,
-                            node
-                        )
-                    if (startState.serializedKeycloakAuthState != null) {
-                        protocolManagerSession.identityDelegate.saveKeycloakAuthState(
-                            protocolManagerSession.session,
-                            obvOwnedIdentity.getIdentity(),
-                            startState.serializedKeycloakAuthState
-                        )
-                    }
-                } else {
-                    throw Exception()
+                val obvOwnedIdentity: ObvIdentity =
+                    protocolManagerSession.identityDelegate.restoreTransferredOwnedIdentity(
+                        protocolManagerSession.session,
+                        startState.deviceName,
+                        identityNode
+                    )
+                if (startState.serializedKeycloakAuthState != null) {
+                    protocolManagerSession.identityDelegate.saveKeycloakAuthState(
+                        protocolManagerSession.session,
+                        obvOwnedIdentity.getIdentity(),
+                        startState.serializedKeycloakAuthState
+                    )
                 }
 
                 // give a chance for all delegates to create an owned identity based on what the engine just created
@@ -2412,7 +2417,7 @@ class OwnedIdentityTransferProtocol(
                             return@NotificationListener
                         }
                         val identity =
-                            userInfo.get(DownloadNotifications.NOTIFICATION_PUSH_NOTIFICATION_REGISTERED_OWNED_IDENTITY_KEY)
+                            userInfo[DownloadNotifications.NOTIFICATION_PUSH_NOTIFICATION_REGISTERED_OWNED_IDENTITY_KEY]
                         if (identity !is Identity || startState.transferredIdentity != identity) {
                             return@NotificationListener
                         }
@@ -2495,12 +2500,12 @@ class OwnedIdentityTransferProtocol(
 
             run {
                 // at the very end, add a final session commit listener that will be called after all engine notifications are sent
-                protocolManagerSession.session.addSessionCommitListener(SessionCommitListener {
+                protocolManagerSession.session.addSessionCommitListener {
                     protocolManagerSession.notificationPostingDelegate?.postNotification(
                         ProtocolNotifications.NOTIFICATION_SNAPSHOT_RESTORATION_FINISHED,
-                        HashMap<String, Any>()
+                        HashMap()
                     )
-                })
+                }
             }
 
             return FinalState()

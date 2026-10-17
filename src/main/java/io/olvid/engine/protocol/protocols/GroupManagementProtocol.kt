@@ -671,7 +671,7 @@ class GroupManagementProtocol(
     // region steps
     override fun getPossibleStepClasses(stateId: Int): Array<Class<*>> {
         if (stateId == ConcreteProtocol.INITIAL_STATE_ID) {
-            return arrayOf<Class<*>>(
+            return arrayOf(
                 InitiateGroupCreationStep::class.java,
                 ProcessPropagateGroupCreationMessage::class.java,
                 NotifyMembersChangedStep::class.java,
@@ -692,7 +692,7 @@ class GroupManagementProtocol(
                 UpdateMembersStep::class.java,
             )
         }
-        return arrayOf<Class<*>>()
+        return arrayOf()
     }
 
 

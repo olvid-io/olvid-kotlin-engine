@@ -254,14 +254,14 @@ class OwnedIdentityDeletionProtocol(
     // region steps
     override fun getPossibleStepClasses(stateId: Int): Array<Class<*>> {
         when (stateId) {
-            ConcreteProtocol.INITIAL_STATE_ID -> return arrayOf<Class<*>>(
+            ConcreteProtocol.INITIAL_STATE_ID -> return arrayOf(
                 StartDeletionStep::class.java,
                 ProcessContactOwnedIdentityWasDeletedMessageStep::class.java
             )
 
-            UNREGISTERING_FROM_SERVER_STATE_ID -> return arrayOf<Class<*>>(FinalizeDeletionStep::class.java)
-            FINISHED_STATED_ID -> return arrayOf<Class<*>>()
-            else -> return arrayOf<Class<*>>()
+            UNREGISTERING_FROM_SERVER_STATE_ID -> return arrayOf(FinalizeDeletionStep::class.java)
+            FINISHED_STATED_ID -> return arrayOf()
+            else -> return arrayOf()
         }
     }
 

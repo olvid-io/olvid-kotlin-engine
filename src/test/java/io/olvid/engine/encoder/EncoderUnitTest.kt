@@ -30,6 +30,7 @@ import io.olvid.engine.datatypes.key.asymmetric.EncryptionPrivateKey
 import io.olvid.engine.datatypes.key.asymmetric.EncryptionPublicKey
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.fail
 import org.junit.Test
 import java.math.BigInteger
 import java.security.SecureRandom
@@ -127,5 +128,93 @@ class EncoderUnitTest {
         val src2 = byteArrayOf(1, 2, 3, 4, 5)
         val expected2 = byteArrayOf(0x00, 0x00, 0x00, 0x00, 0x05, 1, 2, 3, 4, 5)
         assertArrayEquals(expected2, Encoded.of(src2).bytes)
+    }
+
+    // replace the 4 length bytes of an encoded value with the given length
+    private fun withOuterLength(bytes: ByteArray, len: Int): ByteArray {
+        val copy = bytes.copyOf()
+        System.arraycopy(Encoded.bytesFromUInt32(len), 0, copy, 1, 4)
+        return copy
+    }
+
+    // append some bytes inside an encoded list/dictionary, updating its outer length accordingly
+    private fun withTrailingBytes(bytes: ByteArray, trailing: Int): ByteArray =
+        withOuterLength(bytes + ByteArray(trailing), bytes.size - 5 + trailing)
+
+    private fun assertDecodingFails(block: () -> Unit) {
+        try {
+            block()
+            fail("Expected DecodingException")
+        } catch (_: DecodingException) {
+            // expected
+        }
+    }
+
+    private val sampleList: ByteArray = Encoded.of(arrayOf(Encoded.of(byteArrayOf(1, 2, 3)), Encoded.of(42L))).bytes
+    private val sampleDictionary: ByteArray = Encoded.of(
+        hashMapOf(DictionaryKey("a") to Encoded.of(byteArrayOf(1, 2, 3)), DictionaryKey("b") to Encoded.of(42L))
+    ).bytes
+
+    @Test
+    fun test_decodeListAndDictionaryRejectTrailingBytes() {
+        assertEquals(2, Encoded(sampleList).decodeList().size)
+        assertEquals(2, Encoded(sampleList).decodeListWithPadding().size)
+        assertEquals(2, Encoded(sampleDictionary).decodeDictionary().size)
+        assertEquals(2, Encoded(sampleDictionary).decodeDictionaryWithPadding().size)
+
+        // (5 zero bytes would be a valid encoding of an empty byte array)
+        for (trailing in 1..4) {
+            val list = withTrailingBytes(sampleList, trailing)
+            val dictionary = withTrailingBytes(sampleDictionary, trailing)
+            assertDecodingFails { Encoded(list).decodeList() }
+            assertDecodingFails { Encoded(list).decodeListWithPadding() }
+            assertDecodingFails { Encoded(dictionary).decodeDictionary() }
+            assertDecodingFails { Encoded(dictionary).decodeDictionaryWithPadding() }
+        }
+    }
+
+    @Test
+    fun test_decodeWithPaddingAcceptsPaddingAfterTotalLength() {
+        for (padding in listOf(1, 4, 5, 100)) {
+            assertEquals(2, Encoded(sampleList + ByteArray(padding)).decodeListWithPadding().size)
+            assertEquals(2, Encoded(sampleDictionary + ByteArray(padding)).decodeDictionaryWithPadding().size)
+        }
+    }
+
+    @Test(timeout = 10_000)
+    fun test_decodeRejectsNegativeLengths() {
+        for (negativeLength in listOf(-1, -5, -6, Int.MIN_VALUE)) {
+            // a list containing a single element with a negative length
+            val elementHeader = byteArrayOf(0x00) + Encoded.bytesFromUInt32(negativeLength)
+            val list = withOuterLength(sampleList.copyOfRange(0, 5) + elementHeader, 5)
+            assertDecodingFails { Encoded(list).decodeList() }
+            assertDecodingFails { Encoded(list + ByteArray(16)).decodeListWithPadding() }
+
+            // a dictionary whose key, or value, has a negative length
+            val dictionaryWithNegativeKey = withOuterLength(sampleDictionary.copyOfRange(0, 5) + elementHeader, 5)
+            assertDecodingFails { Encoded(dictionaryWithNegativeKey).decodeDictionary() }
+            assertDecodingFails { Encoded(dictionaryWithNegativeKey + ByteArray(16)).decodeDictionaryWithPadding() }
+            val key = Encoded.of(byteArrayOf(0x61)).bytes
+            val dictionaryWithNegativeValue = withOuterLength(sampleDictionary.copyOfRange(0, 5) + key + elementHeader, key.size + 5)
+            assertDecodingFails { Encoded(dictionaryWithNegativeValue).decodeDictionary() }
+            assertDecodingFails { Encoded(dictionaryWithNegativeValue + ByteArray(16)).decodeDictionaryWithPadding() }
+
+            // negative outer lengths
+            assertDecodingFails { Encoded(withOuterLength(sampleList, negativeLength)).decodeListWithPadding() }
+            assertDecodingFails { Encoded(withOuterLength(sampleDictionary, negativeLength)).decodeDictionaryWithPadding() }
+            assertDecodingFails { Encoded.fromLongerByteArray(withOuterLength(sampleList, negativeLength)) }
+        }
+    }
+
+    @Test(timeout = 10_000)
+    fun test_decodeRejectsOverflowingLengths() {
+        for (hugeLength in listOf(Int.MAX_VALUE, Int.MAX_VALUE - 4, Int.MAX_VALUE - 9)) {
+            val elementHeader = byteArrayOf(0x00) + Encoded.bytesFromUInt32(hugeLength)
+            val list = withOuterLength(sampleList.copyOfRange(0, 5) + elementHeader, 5)
+            assertDecodingFails { Encoded(list).decodeList() }
+            assertDecodingFails { Encoded(list + ByteArray(16)).decodeListWithPadding() }
+            assertDecodingFails { Encoded(withOuterLength(sampleList, hugeLength)).decodeListWithPadding() }
+            assertDecodingFails { Encoded.fromLongerByteArray(withOuterLength(sampleList, hugeLength)) }
+        }
     }
 }
