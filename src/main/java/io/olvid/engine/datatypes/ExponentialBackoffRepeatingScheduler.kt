@@ -82,9 +82,12 @@ open class ExponentialBackoffRepeatingScheduler<T> @JvmOverloads constructor(
         }
     }
 
-    fun clearFailedCount(key: T) {
+    fun clearFailedCount(key: T, cancelPendingJobs: Boolean = false) {
         synchronized(lock) {
             failedAttemptCounts.remove(key)
+            if (cancelPendingJobs) {
+                pendingRunnables.remove(key)
+            }
         }
     }
 
@@ -104,7 +107,7 @@ open class ExponentialBackoffRepeatingScheduler<T> @JvmOverloads constructor(
 
     // for polling only
     protected open fun computeReschedulingDelay(failedAttemptCount: Int): Long {
-        val base = Constants.BASE_RESCHEDULING_TIME shl Math.min(failedAttemptCount, 32)
-        return (base * (1 + random.nextFloat())).toLong()
+        val base = Constants.BASE_RESCHEDULING_TIME shl failedAttemptCount.coerceAtMost(32)
+        return (base * (1 + random.nextFloat())).toLong().coerceAtMost(Constants.MAX_RESCHEDULING_TIME)
     }
 }

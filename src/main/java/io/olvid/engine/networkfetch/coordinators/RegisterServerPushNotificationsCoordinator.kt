@@ -35,6 +35,7 @@ import io.olvid.engine.metamanager.NotificationListeningDelegate
 import io.olvid.engine.metamanager.NotificationPostingDelegate
 import io.olvid.engine.networkfetch.databases.PushNotificationConfiguration
 import io.olvid.engine.networkfetch.databases.PushNotificationConfiguration.NewPushNotificationConfigurationListener
+import io.olvid.engine.networkfetch.datatypes.AndroidIdentityMaskingUidRegistry
 import io.olvid.engine.networkfetch.datatypes.CreateServerSessionDelegate
 import io.olvid.engine.networkfetch.datatypes.DownloadMessagesAndListAttachmentsDelegate
 import io.olvid.engine.networkfetch.datatypes.FetchManagerSessionFactory
@@ -63,7 +64,7 @@ class RegisterServerPushNotificationsCoordinator(
 
     private val serverSessionCreatedNotificationListener: ServerSessionCreatedNotificationListener
 
-    private val androidIdentityMaskingUids: HashMap<UID?, IdentityAndUid?>
+    private val androidIdentityMaskingUids: AndroidIdentityMaskingUidRegistry
     private val ownedIdentitiesThatNeedAnOwnedDeviceDiscovery: HashSet<Identity?>
 
     private var notificationListeningDelegate: NotificationListeningDelegate? = null
@@ -81,7 +82,7 @@ class RegisterServerPushNotificationsCoordinator(
 
         scheduler = ExponentialBackoffRepeatingScheduler<Identity?>()
 
-        androidIdentityMaskingUids = HashMap<UID?, IdentityAndUid?>()
+        androidIdentityMaskingUids = AndroidIdentityMaskingUidRegistry()
         ownedIdentitiesThatNeedAnOwnedDeviceDiscovery = HashSet<Identity?>()
 
         serverSessionCreatedNotificationListener = ServerSessionCreatedNotificationListener()
@@ -156,6 +157,8 @@ class RegisterServerPushNotificationsCoordinator(
             }
         } catch (e: Exception) {
             Logger.x(e)
+        } finally {
+            androidIdentityMaskingUids.markLoaded()
         }
     }
 
@@ -287,6 +290,8 @@ class RegisterServerPushNotificationsCoordinator(
                     identityAndUid.identity,
                     identityAndUid.uid
                 )
+            } else {
+                Logger.w("Received an Android push notification for an unknown identity mask")
             }
         } catch (e: Exception) {
             Logger.x(e)
@@ -313,6 +318,7 @@ class RegisterServerPushNotificationsCoordinator(
         deviceUid: UID,
         identityMaskingUid: UID?
     ) {
+        if (identityMaskingUid == null) return
         androidIdentityMaskingUids.put(identityMaskingUid, IdentityAndUid(identity, deviceUid))
     }
 

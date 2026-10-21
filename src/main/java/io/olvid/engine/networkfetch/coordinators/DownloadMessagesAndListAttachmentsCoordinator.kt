@@ -369,6 +369,8 @@ class DownloadMessagesAndListAttachmentsCoordinator(
 
 
     override fun downloadMessagesAndListAttachments(identity: Identity?, deviceUid: UID?) {
+        // called on a push or a manual refresh: the network is likely back, so a failure should be retried quickly
+        scheduler.clearFailedCount(identity, cancelPendingJobs = true)
         queueNewDownloadMessagesAndListAttachmentsOperation(identity, deviceUid)
     }
 

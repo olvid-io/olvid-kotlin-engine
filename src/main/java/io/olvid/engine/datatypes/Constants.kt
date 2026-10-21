@@ -207,6 +207,7 @@ object Constants {
 
 
     const val BASE_RESCHEDULING_TIME: Long = 250L
+    const val MAX_RESCHEDULING_TIME: Long = 1_200_000L // 20 minutes
     const val WEBSOCKET_PING_INTERVAL_MILLIS: Long = 20000L
     const val WEBSOCKET_RECONNECT_INTERVAL_MILLIS: Long = 6000000L // 1h40 (the AWS timeout is 2h)
     const val WEBSOCKET_SLEEP_DETECTION_INTERVAL_MILLIS: Long = 5000L

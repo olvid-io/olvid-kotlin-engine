@@ -172,6 +172,23 @@ class ExponentialBackoffRepeatingSchedulerTest {
     }
     
     @Test
+    fun testComputeReschedulingDelayIsCapped() {
+        val realScheduler = ExponentialBackoffRepeatingScheduler<String>()
+        val method = ExponentialBackoffRepeatingScheduler::class.java.getDeclaredMethod("computeReschedulingDelay", Int::class.javaPrimitiveType)
+        method.isAccessible = true
+
+        // 250 ms << 2 is still well under the cap
+        val delay2 = method.invoke(realScheduler, 2) as Long
+        assertTrue(delay2 in 1_000L..2_000L)
+
+        // uncapped, 10 failures waited 4 to 8 minutes and 15 failures 2 to 4 hours
+        for (failedAttemptCount in listOf(10, 15, 32, 100)) {
+            val delay = method.invoke(realScheduler, failedAttemptCount) as Long
+            assertTrue(delay in 1L..Constants.MAX_RESCHEDULING_TIME)
+        }
+    }
+
+    @Test
     fun testPendingRunnableRemovedBeforeExecution() {
         // This covers the branch inside `schedule` where runnab == null
         // because it was removed. We can simulate it by retrying scheduled runnables

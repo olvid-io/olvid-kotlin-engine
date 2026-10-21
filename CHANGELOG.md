@@ -1,3 +1,8 @@
+# Version 1.3.1
+2026-10-21
+
+- Make `processAndroidPushNotification()` block until the engine has finished initializing.
+
 # Version 1.3.0
 2026-10-17
 
