@@ -34,12 +34,20 @@ abstract class SignatureECSdsaPublicKey(
 
     init {
         try {
-            this.ay = key.get(DictionaryKey(PUBLIC_Y_COORD_KEY_NAME))!!.decodeBigUInt()
-            val xKey: DictionaryKey = DictionaryKey(PUBLIC_X_COORD_KEY_NAME)
-            if (key.containsKey(xKey)) {
-                this.ax = key.get(xKey)!!.decodeBigUInt()
-            } else {
-                this.ax = null
+            this.ay = key[DictionaryKey(PUBLIC_Y_COORD_KEY_NAME)]!!.decodeBigUInt().also { ay ->
+                curve?.p?.let { p ->
+                    if (p.compareTo(ay) != 1) {
+                        throw DecodingException()
+                    }
+                }
+            }
+            val xKey = DictionaryKey(PUBLIC_X_COORD_KEY_NAME)
+            this.ax = key[xKey]?.decodeBigUInt()?.also { ax ->
+                curve?.p?.let { p ->
+                    if (p.compareTo(ax) != 1) {
+                        throw DecodingException()
+                    }
+                }
             }
         } catch (_: DecodingException) {
             throw InvalidParameterException()

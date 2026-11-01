@@ -157,7 +157,7 @@ class DeviceBackupSeed : ObvDatabase {
                     "CREATE TABLE IF NOT EXISTS " + TABLE_NAME + " (" +
                             BACKUP_SEED + " BLOB PRIMARY KEY, " +
                             SERVER + " TEXT NOT NULL, " +
-                            ACTIVE + " BIY NOT NULL, " +
+                            ACTIVE + " BIT NOT NULL, " +
                             NEXT_BACKUP_TIMESTAMP + " BIGINT NOT NULL " +
                             ");"
                 )

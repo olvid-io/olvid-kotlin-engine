@@ -731,6 +731,22 @@ interface EngineAPI {
         obvSyncAtom: ObvSyncAtom
     )
 
+    // A custom photo is set on a contact or a group for this user only. It is synced with their other devices
+    // and kept in transfers and backups. absolutePhotoUrl null removes it, "" hides the published photo. With
+    // onlyIfNone, nothing happens if there already is one, and other devices keep theirs: use it to upload photos
+    // set before they were synced.
+    @Throws(Exception::class)
+    fun setCustomPhoto(
+        bytesOwnedIdentity: ByteArray,
+        target: ObvSyncAtom.DiscussionIdentifier,
+        absolutePhotoUrl: String?,
+        onlyIfNone: Boolean
+    )
+
+    // relative to the engine base directory, "" if the published photo is hidden, null if there is none or if it
+    // is not downloaded yet
+    fun getCustomPhotoUrl(bytesOwnedIdentity: ByteArray, target: ObvSyncAtom.DiscussionIdentifier): String?
+
     // Run once after you upgrade from a version not handling Contact and ContactGroup UserData (profile photos) to a version able to do so
     @Throws(Exception::class)
     fun downloadAllUserData()

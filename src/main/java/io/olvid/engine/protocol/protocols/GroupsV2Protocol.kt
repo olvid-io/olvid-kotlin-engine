@@ -3004,7 +3004,7 @@ class GroupsV2Protocol(
                             // check the administrators chain
                             try {
                                 serverBlob.administratorsChain.withCheckedIntegrity(
-                                    serverBlob.administratorsChain.groupUid,
+                                    startState.groupIdentifier.groupUid,
                                     signerIdentity,
                                     protocolManagerSession.identityDelegate!!.getGroupV2AdministratorsChain(
                                         protocolManagerSession.session,
@@ -4730,7 +4730,7 @@ class GroupsV2Protocol(
 
 
     class PrepareBlobForGroupUpdateStep(
-        @field:Suppress("unused") internal val startState: WaitingForLockState,
+        internal val startState: WaitingForLockState,
         internal val receivedMessage: RequestLockMessage,
         protocol: GroupsV2Protocol?
     ) : ProtocolStep(
@@ -4818,7 +4818,7 @@ class GroupsV2Protocol(
                     // check the administrators chain
                     try {
                         uncheckedServerBlob.administratorsChain.withCheckedIntegrity(
-                            uncheckedServerBlob.administratorsChain.groupUid,
+                            startState.groupIdentifier.groupUid,
                             signerIdentity,
                             protocolManagerSession.identityDelegate.getGroupV2AdministratorsChain(
                                 protocolManagerSession.session,

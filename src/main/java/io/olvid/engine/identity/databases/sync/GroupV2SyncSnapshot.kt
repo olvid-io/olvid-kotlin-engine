@@ -31,6 +31,7 @@ import io.olvid.engine.datatypes.containers.GroupV2.Permission.Companion.deseria
 import io.olvid.engine.datatypes.key.asymmetric.ServerAuthenticationPrivateKey
 import io.olvid.engine.encoder.Encoded
 import io.olvid.engine.engine.types.ObvBytesKey
+import io.olvid.engine.engine.types.sync.ObvSyncAtom.DiscussionIdentifier
 import io.olvid.engine.engine.types.sync.ObvSyncDiff
 import io.olvid.engine.engine.types.sync.ObvSyncSnapshotNode
 import io.olvid.engine.identity.databases.ContactGroupV2
@@ -66,6 +67,7 @@ class GroupV2SyncSnapshot : ObvSyncSnapshotNode {
     @JsonSerialize(keyUsing = ObvBytesKey.KeySerializer::class)
     @JsonDeserialize(keyUsing = ObvBytesKey.KeyDeserializer::class)
     var pending_members: HashMap<ObvBytesKey?, GroupV2PendingMember?>? = null
+    @JvmField var custom_photo: CustomPhotoSyncSnapshot? = null
     @JvmField var domain: HashSet<String>? = null
 
 
@@ -186,6 +188,10 @@ class GroupV2SyncSnapshot : ObvSyncSnapshotNode {
             Logger.x(e)
         }
 
+        if (domain!!.contains(CUSTOM_PHOTO)) {
+            custom_photo?.restore(identityManagerSession, ownedIdentity!!, DiscussionIdentifier(DiscussionIdentifier.GROUP_V2, groupIdentifier.bytes))
+        }
+
         return groupV2
     }
 
@@ -252,6 +258,7 @@ class GroupV2SyncSnapshot : ObvSyncSnapshotNode {
         const val SERIALIZED_GROUP_TYPE: String = "serialized_group_type"
         const val MEMBERS: String = "members"
         const val PENDING_MEMBERS: String = "pending_members"
+        const val CUSTOM_PHOTO: String = "custom_photo"
         var DEFAULT_SERVER_DOMAIN: HashSet<String> = HashSet(
             listOf(
                 PERMISSIONS,
@@ -265,7 +272,8 @@ class GroupV2SyncSnapshot : ObvSyncSnapshotNode {
                 INVITATION_NONCE,
                 SERIALIZED_GROUP_TYPE,
                 MEMBERS,
-                PENDING_MEMBERS
+                PENDING_MEMBERS,
+                CUSTOM_PHOTO
             )
         )
         var DEFAULT_KEYCLOAK_DOMAIN: HashSet<String> = HashSet(
@@ -277,7 +285,8 @@ class GroupV2SyncSnapshot : ObvSyncSnapshotNode {
                 PUSH_TOPIC,
                 SERIALIZED_SHARED_SETTINGS,
                 MEMBERS,
-                PENDING_MEMBERS
+                PENDING_MEMBERS,
+                CUSTOM_PHOTO
             )
         )
 
@@ -361,6 +370,12 @@ class GroupV2SyncSnapshot : ObvSyncSnapshotNode {
                 val pm = groupV2PendingMember ?: continue
                 groupV2SyncSnapshot.pending_members!![ObvBytesKey(pm.contactIdentity.getBytes())] = GroupV2PendingMember.of(pm)
             }
+
+            groupV2SyncSnapshot.custom_photo = CustomPhotoSyncSnapshot.of(
+                identityManagerSession,
+                group2.ownedIdentity,
+                DiscussionIdentifier(DiscussionIdentifier.GROUP_V2, group2.groupIdentifier.bytes)
+            )
 
             return groupV2SyncSnapshot
         }

@@ -18,6 +18,7 @@
  */
 package io.olvid.engine.datatypes.containers
 
+import io.olvid.engine.datatypes.Constants
 import io.olvid.engine.datatypes.Identity
 import io.olvid.engine.datatypes.UID
 
@@ -28,10 +29,11 @@ class UserData(
     @JvmField val type: Type?,
     @JvmField val bytesGroupOwnerAndUidOrIdentifier: ByteArray?
 ) {
-    enum class Type {
-        OWNED_IDENTITY,
-        GROUP,
-        GROUP_V2,
+    enum class Type(@JvmField val refreshInterval: Long) {
+        OWNED_IDENTITY(Constants.USER_DATA_REFRESH_INTERVAL),
+        GROUP(Constants.USER_DATA_REFRESH_INTERVAL),
+        GROUP_V2(Constants.USER_DATA_REFRESH_INTERVAL),
+        CUSTOM_PHOTO(Constants.CUSTOM_PHOTO_USER_DATA_REFRESH_INTERVAL),
     }
     fun getOwnedIdentity(): Identity? = ownedIdentity
     fun getLabel(): UID? = label

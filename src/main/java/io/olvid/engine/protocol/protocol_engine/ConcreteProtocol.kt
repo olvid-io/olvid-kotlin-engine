@@ -35,6 +35,7 @@ import io.olvid.engine.protocol.protocols.DeviceCapabilitiesDiscoveryProtocol
 import io.olvid.engine.protocol.protocols.DeviceDiscoveryChildProtocol
 import io.olvid.engine.protocol.protocols.DeviceDiscoveryProtocol
 import io.olvid.engine.protocol.protocols.DownloadGroupPhotoChildProtocol
+import io.olvid.engine.protocol.protocols.DownloadCustomPhotoProtocol
 import io.olvid.engine.protocol.protocols.DownloadGroupV2PhotoProtocol
 import io.olvid.engine.protocol.protocols.DownloadIdentityPhotoChildProtocol
 import io.olvid.engine.protocol.protocols.FullRatchetProtocol
@@ -180,6 +181,7 @@ abstract class ConcreteProtocol(
         const val OWNED_DEVICE_MANAGEMENT_PROTOCOL_ID: Int = 24
         const val SYNCHRONIZATION_PROTOCOL_ID: Int = 25
         const val OWNED_IDENTITY_TRANSFER_PROTOCOL_ID: Int = 26
+        const val DOWNLOAD_CUSTOM_PHOTO_PROTOCOL_ID: Int = 27
 
         // internal protocols, Android only
         const val LEGACY_KEYCLOAK_BINDING_AND_UNBINDING_PROTOCOL_ID: Int = 1000
@@ -427,6 +429,16 @@ abstract class ConcreteProtocol(
                     jsonObjectMapper
                 )
 
+                DOWNLOAD_CUSTOM_PHOTO_PROTOCOL_ID -> return DownloadCustomPhotoProtocol(
+                    protocolManagerSession,
+                    protocolInstanceUid,
+                    stateId,
+                    encodedState,
+                    ownedIdentity,
+                    prng,
+                    jsonObjectMapper
+                )
+
                 DOWNLOAD_GROUPS_V2_PHOTO_PROTOCOL_ID -> return DownloadGroupV2PhotoProtocol(
                     protocolManagerSession,
                     protocolInstanceUid,
@@ -527,6 +539,7 @@ abstract class ConcreteProtocol(
                 ONE_TO_ONE_CONTACT_INVITATION_PROTOCOL_ID -> return 10L
                 GROUPS_V2_PROTOCOL_ID -> return 100L
                 DOWNLOAD_GROUPS_V2_PHOTO_PROTOCOL_ID -> return 201L
+                DOWNLOAD_CUSTOM_PHOTO_PROTOCOL_ID -> return 203L
                 OWNED_IDENTITY_DELETION_PROTOCOL_ID -> return 1L
                 OWNED_DEVICE_DISCOVERY_PROTOCOL_ID -> return 50L
                 CHANNEL_CREATION_WITH_OWNED_DEVICE_PROTOCOL_ID -> return 51L

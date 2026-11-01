@@ -1,3 +1,9 @@
+# Version 1.3.2
+2026-11-02
+
+- Add a `BlocklistedCertificatesTrustManager` to block compromised eMudhra certificates.
+- Add support for synchronizing custom profile pictures across devices.
+
 # Version 1.3.1
 2026-10-21
 

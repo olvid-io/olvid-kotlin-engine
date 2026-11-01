@@ -110,6 +110,7 @@ import io.olvid.engine.identity.databases.ContactGroupV2PendingMember
 import io.olvid.engine.identity.databases.ContactIdentity
 import io.olvid.engine.identity.databases.ContactIdentityDetails
 import io.olvid.engine.identity.databases.ContactTrustOrigin
+import io.olvid.engine.identity.databases.CustomPhoto
 import io.olvid.engine.identity.databases.KeycloakRevokedIdentity
 import io.olvid.engine.identity.databases.KeycloakServer
 import io.olvid.engine.identity.databases.OwnedDevice
@@ -414,6 +415,9 @@ class IdentityManager(
                     )) {
                         photoUrlsToKeep.add(File(photoUrl).name)
                     }
+                    for (photoUrl in CustomPhoto.getAllPhotoUrl(identityManagerSession)) {
+                        photoUrlsToKeep.add(File(photoUrl).name)
+                    }
 
                     for (listedPhotoUrl in photoUrlsListed.managedFileList) {
                         if (!photoUrlsToKeep.contains(listedPhotoUrl.plainNameFile.name)) {
@@ -624,6 +628,7 @@ class IdentityManager(
                 ContactGroupV2.createTable(identityManagerSession.session)
                 ContactGroupV2Member.createTable(identityManagerSession.session)
                 ContactGroupV2PendingMember.createTable(identityManagerSession.session)
+                CustomPhoto.createTable(identityManagerSession.session)
                 identityManagerSession.session.commit()
             }
         } catch (e: SQLException) {
@@ -838,6 +843,7 @@ class IdentityManager(
 
             // delete server user data
             ServerUserData.deleteAllForOwnedIdentity(wrapSession(session), ownedIdentity)
+            CustomPhoto.deleteAllForOwnedIdentity(wrapSession(session), ownedIdentity)
 
             // delete the ownedIdentity (and associated details)
             //  - this cascade deletes OwnedDevice
@@ -6075,6 +6081,33 @@ class IdentityManager(
                 }
             }
 
+            ObvSyncAtom.TYPE_CUSTOM_PHOTO_CHANGE -> {
+                val target = obvSyncAtom.discussionIdentifiers!!.single()
+                val existing = CustomPhoto.get(wrapSession(session), ownedIdentity!!, target)
+                val serverPhotoInfo = obvSyncAtom.serverPhotoInfo
+                val hidden = obvSyncAtom.integerValue == ObvSyncAtom.CUSTOM_PHOTO_HIDDEN
+                if (existing == null) {
+                    if (serverPhotoInfo == null && !hidden) {
+                        return
+                    }
+                } else if (obvSyncAtom.booleanValue == true
+                    || (hidden && existing.isHidden)
+                    || (serverPhotoInfo != null && existing.serverPhotoInfo?.serverPhotoLabel == serverPhotoInfo.serverPhotoLabel)) {
+                    return
+                }
+
+                existing?.deleteAndReleaseServerCopy(serverPhotoInfo == null && !hidden)
+                if (customPhotoTargetExists(wrapSession(session), ownedIdentity, target)) {
+                    if (serverPhotoInfo != null) {
+                        CustomPhoto.createToDownload(wrapSession(session), ownedIdentity, target, serverPhotoInfo)
+                        protocolStarterDelegate!!.startDownloadCustomPhotoProtocolWithinTransaction(session, ownedIdentity, target, serverPhotoInfo)
+                    } else if (hidden) {
+                        CustomPhoto.createHidden(wrapSession(session), ownedIdentity, target, true)
+                    }
+                }
+                session.addSessionCommitListener(getSessionCommitListenerForProfileBackup(ownedIdentity))
+            }
+
             else -> {
                 throw Exception("Unknown Identity Manager sync atom type")
             }
@@ -6126,7 +6159,91 @@ class IdentityManager(
                 contactGroupV2Details.serverPhotoInfo
             )
         }
+
+        for (customPhoto in CustomPhoto.getAllWithMissingPhotoUrl(wrapSession(session))) {
+            protocolStarterDelegate!!.startDownloadCustomPhotoProtocolWithinTransaction(
+                session,
+                customPhoto.ownedIdentity,
+                customPhoto.target,
+                customPhoto.serverPhotoInfo!!
+            )
+        }
     }
+
+    // region custom photos
+
+    private fun customPhotoTargetExists(
+        identityManagerSession: IdentityManagerSession,
+        ownedIdentity: Identity,
+        target: ObvSyncAtom.DiscussionIdentifier
+    ): Boolean {
+        return when (target.type) {
+            ObvSyncAtom.DiscussionIdentifier.CONTACT -> ContactIdentity.get(identityManagerSession, ownedIdentity, Identity.of(target.bytesDiscussionIdentifier)) != null
+            ObvSyncAtom.DiscussionIdentifier.GROUP_V1 -> ContactGroup.get(identityManagerSession, target.bytesDiscussionIdentifier, ownedIdentity) != null
+            ObvSyncAtom.DiscussionIdentifier.GROUP_V2 -> ContactGroupV2.get(identityManagerSession, ownedIdentity, GroupV2.Identifier.of(target.bytesDiscussionIdentifier)) != null
+            else -> false
+        }
+    }
+
+    @Throws(Exception::class)
+    override fun setCustomPhoto(
+        session: Session,
+        ownedIdentity: Identity,
+        target: ObvSyncAtom.DiscussionIdentifier,
+        absolutePhotoUrl: String?,
+        prng: PRNGService
+    ): Pair<String, ServerPhotoInfo>? {
+        CustomPhoto.get(wrapSession(session), ownedIdentity, target)?.deleteAndReleaseServerCopy(false)
+        session.addSessionCommitListener(getSessionCommitListenerForProfileBackup(ownedIdentity))
+        if (absolutePhotoUrl == null) {
+            return null
+        }
+        if (absolutePhotoUrl.isEmpty()) {
+            CustomPhoto.createHidden(wrapSession(session), ownedIdentity, target, false)
+            return null
+        }
+        val customPhoto = CustomPhoto.createFromLocalPhoto(
+            wrapSession(session),
+            ownedIdentity,
+            target,
+            ServerPhotoInfo(ownedIdentity, UID(prng), Suite.getDefaultAuthEnc(0).generateKey(prng) as AuthEncKey),
+            absolutePhotoUrl
+        )
+        return Pair(customPhoto.photoUrl!!, customPhoto.serverPhotoInfo!!)
+    }
+
+    @Throws(Exception::class)
+    override fun hasCustomPhoto(session: Session, ownedIdentity: Identity, target: ObvSyncAtom.DiscussionIdentifier): Boolean {
+        return CustomPhoto.get(wrapSession(session), ownedIdentity, target) != null
+    }
+
+    @Throws(Exception::class)
+    override fun getCustomPhotoUrl(session: Session, ownedIdentity: Identity, target: ObvSyncAtom.DiscussionIdentifier): String? {
+        val customPhoto = CustomPhoto.get(wrapSession(session), ownedIdentity, target) ?: return null
+        return if (customPhoto.isHidden) "" else customPhoto.photoUrl
+    }
+
+    @Throws(Exception::class)
+    override fun getCustomPhotoUrlAndKey(session: Session, ownedIdentity: Identity, label: UID): Pair<String?, AuthEncKey>? {
+        return CustomPhoto.getByLabel(wrapSession(session), ownedIdentity, label)?.let { Pair(it.photoUrl, it.serverPhotoInfo!!.serverPhotoKey) }
+    }
+
+    @Throws(Exception::class)
+    override fun setCustomPhotoDownloaded(
+        session: Session,
+        ownedIdentity: Identity,
+        target: ObvSyncAtom.DiscussionIdentifier,
+        serverPhotoInfo: ServerPhotoInfo,
+        photo: ByteArray
+    ) {
+        val customPhoto = CustomPhoto.get(wrapSession(session), ownedIdentity, target) ?: return
+        // the photo may have changed again while it was downloading
+        if (customPhoto.serverPhotoInfo == serverPhotoInfo && customPhoto.photoUrl == null) {
+            customPhoto.setDownloadedPhoto(photo)
+        }
+    }
+
+    // endregion
 
 
     // endregion
@@ -6800,6 +6917,7 @@ class IdentityManager(
             ContactGroupV2.upgradeTable(session, oldVersion, newVersion)
             ContactGroupV2Member.upgradeTable(session, oldVersion, newVersion)
             ContactGroupV2PendingMember.upgradeTable(session, oldVersion, newVersion)
+            CustomPhoto.upgradeTable(session, oldVersion, newVersion)
         }
 
         @Throws(Exception::class)

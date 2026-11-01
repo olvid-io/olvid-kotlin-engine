@@ -53,7 +53,7 @@ import javax.net.ssl.SSLSocketFactory
 
 
 class ProfileBackupsFetchTask(
-    private val server: String?,
+    private val identity: Identity,
     private val profileBackupSeed: BackupSeed,
     private val backupManagerSessionFactory: BackupManagerSessionFactory,
     private val sslSocketFactory: SSLSocketFactory?,
@@ -71,7 +71,7 @@ class ProfileBackupsFetchTask(
             ServerQuery(
                 null,
                 null,
-                BackupsV2ListBackupsQuery(server, derivedKeysV2.backupKeyUid)
+                BackupsV2ListBackupsQuery(identity.server, derivedKeysV2.backupKeyUid)
             ), sslSocketFactory, userAgentOverride
         )
         var queue = OperationQueue()
@@ -193,6 +193,10 @@ class ProfileBackupsFetchTask(
             val obvSyncSnapshotNode =
                 obvProfileBackupForRestore.snapshot!!.getSnapshotNode(identityDelegate.syncDelegate!!.tag)
             if (obvSyncSnapshotNode is IdentityManagerSyncSnapshot) {
+                if (!obvSyncSnapshotNode.owned_identity.contentEquals(identity.getBytes())) {
+                    Logger.w("Backup snapshot contained the wrong identity!!! Skipping it")
+                    continue
+                }
                 val ownedIdentityNode = obvSyncSnapshotNode.owned_identity_node!!
 
                 if (privateIdentity == null) {

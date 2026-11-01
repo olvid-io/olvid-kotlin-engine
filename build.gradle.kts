@@ -28,7 +28,7 @@ plugins {
 }
 
 group = "io.olvid.messenger"
-version = "1.3.1"
+version = "1.3.2"
 
 repositories {
     mavenCentral()
@@ -61,13 +61,15 @@ dependencies {
 
     implementation("org.bitbucket.b_c:jose4j:0.9.7")
 
-    implementation("com.squareup.okhttp3:okhttp:5.5.0")
+    implementation("com.squareup.okhttp3:okhttp:5.5.1")
     implementation("net.iharder:base64:2.3.9")
 
     // The engine talks only java.sql and discovers the driver via DriverManager/ServiceLoader at
     // runtime, so it binds no SQLite/SQLCipher driver — each consumer (Android app, desktop client,
     // bots) provides its own. The engine's own JVM unit tests use a host-native driver.
     testImplementation("junit:junit:4.13.2")
+    testImplementation("com.squareup.okhttp3:okhttp-tls:5.5.1")
+    testImplementation("com.squareup.okhttp3:mockwebserver3:5.5.1")
     testImplementation("org.xerial:sqlite-jdbc:3.50.3.0")
 }
 

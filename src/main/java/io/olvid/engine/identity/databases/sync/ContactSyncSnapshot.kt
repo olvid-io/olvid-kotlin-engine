@@ -23,6 +23,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import io.olvid.engine.Logger
 import io.olvid.engine.datatypes.Identity
 import io.olvid.engine.datatypes.TrustLevel
+import io.olvid.engine.engine.types.sync.ObvSyncAtom.DiscussionIdentifier
 import io.olvid.engine.engine.types.sync.ObvSyncDiff
 import io.olvid.engine.engine.types.sync.ObvSyncSnapshotNode
 import io.olvid.engine.identity.databases.ContactIdentity
@@ -42,6 +43,7 @@ class ContactSyncSnapshot : ObvSyncSnapshotNode {
         null // only used for backup/transfer, not taken into account when comparing for synchronization
     var trust_origins: MutableList<TrustOrigin>? =
         null // only used for backup/transfer, not taken into account when comparing for synchronization
+    @JvmField var custom_photo: CustomPhotoSyncSnapshot? = null
     @JvmField var domain: HashSet<String>? = null
 
 
@@ -159,6 +161,10 @@ class ContactSyncSnapshot : ObvSyncSnapshotNode {
             }
         }
 
+        if (domain!!.contains(CUSTOM_PHOTO)) {
+            custom_photo?.restore(identityManagerSession, ownedIdentity, DiscussionIdentifier(DiscussionIdentifier.CONTACT, contactIdentity.getBytes()))
+        }
+
         return contactIdentityObject
     }
 
@@ -251,6 +257,7 @@ class ContactSyncSnapshot : ObvSyncSnapshotNode {
         const val FORCEFULLY_TRUSTED: String = "forcefully_trusted"
         const val TRUST_LEVEL: String = "trust_level"
         const val TRUST_ORIGINS: String = "trust_origins"
+        const val CUSTOM_PHOTO: String = "custom_photo"
         var DEFAULT_DOMAIN: HashSet<String> = HashSet(
             listOf(
                 TRUSTED_DETAILS,
@@ -259,7 +266,8 @@ class ContactSyncSnapshot : ObvSyncSnapshotNode {
                 REVOKED,
                 FORCEFULLY_TRUSTED,
                 TRUST_LEVEL,
-                TRUST_ORIGINS
+                TRUST_ORIGINS,
+                CUSTOM_PHOTO
             )
         )
 
@@ -301,6 +309,12 @@ class ContactSyncSnapshot : ObvSyncSnapshotNode {
             )) {
                 contactSyncSnapshot.trust_origins!!.add(TrustOrigin.of(contactTrustOrigin ?: continue))
             }
+
+            contactSyncSnapshot.custom_photo = CustomPhotoSyncSnapshot.of(
+                identityManagerSession,
+                contact.getOwnedIdentity(),
+                DiscussionIdentifier(DiscussionIdentifier.CONTACT, contact.getContactIdentity().getBytes())
+            )
 
             contactSyncSnapshot.domain = DEFAULT_DOMAIN
             return contactSyncSnapshot

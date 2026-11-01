@@ -29,6 +29,7 @@ import io.olvid.engine.datatypes.key.asymmetric.EncryptionEciesCurve25519KeyPair
 import io.olvid.engine.datatypes.key.asymmetric.EncryptionPublicKey
 import io.olvid.engine.datatypes.key.asymmetric.ServerAuthenticationECSdsaCurve25519KeyPair
 import io.olvid.engine.datatypes.key.asymmetric.ServerAuthenticationPublicKey
+import io.olvid.engine.datatypes.key.symmetric.AuthEncKey
 import io.olvid.engine.encoder.DecodingException
 import io.olvid.engine.encoder.Encoded
 import io.olvid.engine.engine.types.sync.ObvSyncAtom.DiscussionIdentifier
@@ -1332,5 +1333,79 @@ class ObvSyncAtomTest {
 
         assertTrue(decoded.globalSetting)
         assertEquals("\uD83D\uDC4D", decoded.emoji)
+    }
+
+    // ─── Group 14: TYPE_CUSTOM_PHOTO_CHANGE ───────────────────────────────────
+
+    private fun serverPhotoInfo(): GroupV2.ServerPhotoInfo {
+        val prng = Suite.getDefaultPRNGService(0)
+        prng.reseed(Seed(ByteArray(32) { 9 }))
+        return GroupV2.ServerPhotoInfo(
+            contactIdentity2,
+            UID(prng),
+            Suite.getDefaultAuthEnc(0).generateKey(prng) as AuthEncKey
+        )
+    }
+
+    @Test fun testTypeConstant_CUSTOM_PHOTO_CHANGE_is26() =
+        assertEquals(26, ObvSyncAtom.TYPE_CUSTOM_PHOTO_CHANGE)
+
+    @Test fun testIsAppSyncItem_customPhotoChange_isFalse() =
+        assertFalse(
+            ObvSyncAtom.createCustomPhotoChange(DiscussionIdentifier(DiscussionIdentifier.CONTACT, bytesContactIdentity), null, false, false).isAppSyncItem
+        )
+
+    @Test
+    fun testRoundTrip_customPhotoChange_withPhoto() {
+        val info = serverPhotoInfo()
+        val target = DiscussionIdentifier(DiscussionIdentifier.GROUP_V1, bytesGroupOwnerAndUid)
+        val decoded = ObvSyncAtom.of(ObvSyncAtom.createCustomPhotoChange(target, info, false, true).encode()!!)
+
+        assertEquals(ObvSyncAtom.TYPE_CUSTOM_PHOTO_CHANGE, decoded.syncType)
+        assertEquals(ObvSyncAtom.CUSTOM_PHOTO_SET, decoded.integerValue)
+        assertEquals(true, decoded.booleanValue)
+        assertEquals(DiscussionIdentifier.GROUP_V1, decoded.discussionIdentifiers!!.single().type)
+        assertArrayEquals(bytesGroupOwnerAndUid, decoded.discussionIdentifiers!!.single().bytesDiscussionIdentifier)
+        assertEquals(info, decoded.serverPhotoInfo)
+    }
+
+    @Test
+    fun testRoundTrip_customPhotoChange_removed() {
+        val target = DiscussionIdentifier(DiscussionIdentifier.GROUP_V2, bytesGroupV2Identifier)
+        val decoded = ObvSyncAtom.of(ObvSyncAtom.createCustomPhotoChange(target, null, false, false).encode()!!)
+
+        assertEquals(ObvSyncAtom.TYPE_CUSTOM_PHOTO_CHANGE, decoded.syncType)
+        assertEquals(ObvSyncAtom.CUSTOM_PHOTO_NONE, decoded.integerValue)
+        assertEquals(false, decoded.booleanValue)
+        assertArrayEquals(bytesGroupV2Identifier, decoded.discussionIdentifiers!!.single().bytesDiscussionIdentifier)
+        assertNull(decoded.serverPhotoInfo)
+    }
+
+    @Test
+    fun testRoundTrip_customPhotoChange_hidden() {
+        val target = DiscussionIdentifier(DiscussionIdentifier.CONTACT, bytesContactIdentity)
+        val decoded = ObvSyncAtom.of(ObvSyncAtom.createCustomPhotoChange(target, null, true, false).encode()!!)
+
+        assertEquals(ObvSyncAtom.CUSTOM_PHOTO_HIDDEN, decoded.integerValue)
+        assertNull(decoded.serverPhotoInfo)
+    }
+
+    @Test(expected = DecodingException::class)
+    fun testOf_customPhotoChange_setWithoutPhoto_throws() {
+        ObvSyncAtom.of(
+            Encoded.of(
+                arrayOf(
+                    Encoded.of(ObvSyncAtom.TYPE_CUSTOM_PHOTO_CHANGE.toLong()),
+                    DiscussionIdentifier(DiscussionIdentifier.CONTACT, bytesContactIdentity).encode()!!,
+                    Encoded.of(false),
+                    Encoded.of(ObvSyncAtom.CUSTOM_PHOTO_SET.toLong()),
+                )
+            )
+        )
+    }
+
+    @Test(expected = DecodingException::class)
+    fun testOf_customPhotoChange_missingTarget_throws() {
+        ObvSyncAtom.of(Encoded.of(arrayOf(Encoded.of(ObvSyncAtom.TYPE_CUSTOM_PHOTO_CHANGE.toLong()))))
     }
 }

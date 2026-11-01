@@ -36,6 +36,7 @@ import io.olvid.engine.encoder.DecodingException
 import io.olvid.engine.encoder.Encoded
 import io.olvid.engine.engine.types.JsonIdentityDetails
 import io.olvid.engine.engine.types.JsonIdentityDetailsWithVersionAndPhoto
+import io.olvid.engine.engine.types.sync.ObvSyncAtom.DiscussionIdentifier
 import io.olvid.engine.identity.datatypes.IdentityManagerSession
 import io.olvid.engine.storage.EngineFile
 import java.io.File
@@ -751,6 +752,8 @@ class ContactIdentity : ObvDatabase {
             statement.setBytes(2, ownedIdentity.getBytes())
             statement.executeUpdate()
         }
+        CustomPhoto.get(identityManagerSession, ownedIdentity, DiscussionIdentifier(DiscussionIdentifier.CONTACT, contactIdentity.getBytes()))
+            ?.deleteAndReleaseServerCopy(false)
     }
 
     // endregion

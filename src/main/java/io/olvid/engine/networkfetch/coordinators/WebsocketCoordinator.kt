@@ -156,7 +156,7 @@ class WebsocketCoordinator(
                 return super.computeReschedulingDelay(failedAttemptCount)
             }
         }
-        awaitingServerSessionIdentities = HashSet<Identity?>()
+        awaitingServerSessionIdentities = HashSet()
         awaitingServerSessionIdentitiesLock = Any()
 
         serverSessionCreatedNotificationListener =
@@ -165,11 +165,11 @@ class WebsocketCoordinator(
             OwnedIdentityListUpdatedNotificationListener()
         wellKnownCacheNotificationListener = WellKnownCacheNotificationListener()
 
-        ownedIdentityAndUidsByServer = HashMap<String, MutableList<IdentityAndUid>?>()
-        ownedIdentityFirstRegisterSuccessful = HashSet<Identity?>()
-        ownedIdentityCurrentDeviceUids = HashMap<Identity?, UID?>()
-        ownedIdentityServerSessionTokens = HashMap<Identity?, ByteArray?>()
-        existingWebsockets = HashMap<String?, WebSocketClient?>()
+        ownedIdentityAndUidsByServer = HashMap()
+        ownedIdentityFirstRegisterSuccessful = HashSet()
+        ownedIdentityCurrentDeviceUids = HashMap()
+        ownedIdentityServerSessionTokens = HashMap()
+        existingWebsockets = HashMap()
 
         okHttpClient = initializeOkHttpClientForWebSocket(sslSocketFactory, userAgentOverride)
     }
@@ -291,7 +291,7 @@ class WebsocketCoordinator(
     // this sends a ping for the current ownedIdentity websocket and returns a ping latency inside a notification
     fun pingWebsocket(ownedIdentity: Identity) {
         val server = ownedIdentity.server
-        val webSocketClient = existingWebsockets.get(server)
+        val webSocketClient = existingWebsockets[server]
         if (webSocketClient != null && webSocketClient.websocketConnected) {
             webSocketClient.sendPing()
         }
@@ -305,7 +305,7 @@ class WebsocketCoordinator(
     private fun internalDisconnectWebsockets() {
         val webSocketClients: MutableList<WebSocketClient?>
         synchronized(existingWebsockets) {
-            webSocketClients = ArrayList<WebSocketClient?>(existingWebsockets.values)
+            webSocketClients = ArrayList(existingWebsockets.values)
         }
         for (webSocketClient in webSocketClients) {
             webSocketClient?.close(true)
@@ -340,7 +340,7 @@ class WebsocketCoordinator(
     private fun scheduleNewWebsocketCreationQueueing(server: String) {
         scheduler.schedule(
             server,
-            Runnable { queueWebsocketCreationOperation(server) },
+            { queueWebsocketCreationOperation(server) },
             "Websocket Connection"
         )
     }
@@ -506,24 +506,26 @@ class WebsocketCoordinator(
                     finished = true
                     return
                 }
-                if (existingWebsockets.containsKey(server)) {
-                    cancel(RFC_WEBSOCKET_ALREADY_EXISTS)
-                    return
-                }
-                // create the websocket connection
-                val wsUrl: String?
-                try {
-                    wsUrl = wellKnownCacheDelegate.getWsUrl(server)
-                } catch (_: NotCachedException) {
-                    cancel(RFC_WELL_KNOWN_NOT_CACHED_YET)
-                    return
-                }
-                if (wsUrl == null) {
-                    cancel(RFC_NO_KNOWN_WS_SERVER_FOR_SERVER)
-                    return
-                }
+                synchronized(existingWebsockets) {
+                    if (existingWebsockets.containsKey(server)) {
+                        cancel(RFC_WEBSOCKET_ALREADY_EXISTS)
+                        return
+                    }
+                    // create the websocket connection
+                    val wsUrl: String?
+                    try {
+                        wsUrl = wellKnownCacheDelegate.getWsUrl(server)
+                    } catch (_: NotCachedException) {
+                        cancel(RFC_WELL_KNOWN_NOT_CACHED_YET)
+                        return
+                    }
+                    if (wsUrl == null) {
+                        cancel(RFC_NO_KNOWN_WS_SERVER_FOR_SERVER)
+                        return
+                    }
 
-                WebSocketClient(server, wsUrl)
+                    WebSocketClient(server, wsUrl)
+                }
                 finished = true
             } catch (e: Exception) {
                 Logger.x(e)
@@ -562,7 +564,7 @@ class WebsocketCoordinator(
             try {
                 fetchManagerSessionFactory.session!!.use { fetchManagerSession ->
                     try {
-                        val webSocketClient = existingWebsockets.get(identity.server)
+                        val webSocketClient = existingWebsockets[identity.server]
                         if (webSocketClient == null) {
                             cancel(RFC_WEBSOCKET_NOT_FOUND)
                             return
@@ -578,7 +580,7 @@ class WebsocketCoordinator(
                             cancel(RFC_NO_VALID_SERVER_SESSION)
                             return
                         }
-                        ownedIdentityServerSessionTokens.put(identity, serverSessionToken)
+                        ownedIdentityServerSessionTokens[identity] = serverSessionToken
 
                         val messageMap: MutableMap<String, Any> = HashMap<String, Any>()
                         messageMap["action"] = "register"
@@ -620,7 +622,7 @@ class WebsocketCoordinator(
 
     fun deleteReturnReceipt(ownedIdentity: Identity, serverUid: ByteArray?) {
         val server = ownedIdentity.server
-        val webSocketClient = existingWebsockets.get(server)
+        val webSocketClient = existingWebsockets[server]
         if (webSocketClient != null) {
             try {
                 val messageMap: MutableMap<String, Any> = HashMap<String, Any>()
@@ -639,7 +641,7 @@ class WebsocketCoordinator(
         private val server: String
         private val webSocket: WebSocket?
 
-        internal var websocketConnected = false
+        var websocketConnected = false
         private var remotelyInitiatedClosing = false
         private var reconnectAlreadyTakenCareOf = false
 
@@ -653,9 +655,8 @@ class WebsocketCoordinator(
             this.wsUrl = wsUrl
             this.server = server
             this.currentConnectionState = 0
-            synchronized(existingWebsockets) {
-                existingWebsockets.put(server, this)
-            }
+
+            existingWebsockets[server] = this
             this.webSocket = okHttpClient.newWebSocket(Request.Builder().url(wsUrl).build(), this)
         }
 
@@ -666,7 +667,7 @@ class WebsocketCoordinator(
 
         override fun onOpen(webSocket: WebSocket, response: Response) {
             websocketConnected = true
-            Logger.d("Websocket connected to " + wsUrl)
+            Logger.d("Websocket connected to $wsUrl")
             if (notificationPostingDelegate != null) {
                 if (currentConnectionState != 1) {
                     currentConnectionState = 1
@@ -1065,7 +1066,7 @@ class WebsocketCoordinator(
             this.reconnectAlreadyTakenCareOf = reconnectAlreadyTakenCareOf
 
             synchronized(existingWebsockets) {
-                if (existingWebsockets.get(server) === this) {
+                if (existingWebsockets[server] === this) {
                     existingWebsockets.remove(server)
                 }
             }
@@ -1073,7 +1074,7 @@ class WebsocketCoordinator(
                 // if we initiated a graceful close, also schedule a cancel to make sure resources are properly released
                 scheduler.schedule(
                     server,
-                    Runnable { webSocket.cancel() },
+                    { webSocket.cancel() },
                     "Websocket cancel()",
                     500
                 )
@@ -1102,7 +1103,7 @@ class WebsocketCoordinator(
 
                 // check if the weak reference is still the current WebSocketClient for this server
                 synchronized(existingWebsockets) {
-                    if (existingWebsockets.get(server) === webSocketClient) {
+                    if (existingWebsockets[server] === webSocketClient) {
                         doReconnect =
                             doConnect // only do something if we are indeed willing to connect
                     }

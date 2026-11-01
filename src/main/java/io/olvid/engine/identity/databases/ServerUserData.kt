@@ -65,6 +65,14 @@ class ServerUserData : ObvDatabase {
                     UserData.Type.OWNED_IDENTITY,
                     null
                 )
+
+                TYPE_CUSTOM_PHOTO -> return UserData(
+                    ownedIdentity,
+                    label,
+                    nextRefreshTimestamp,
+                    UserData.Type.CUSTOM_PHOTO,
+                    null
+                )
             }
             return null
         }
@@ -141,7 +149,7 @@ class ServerUserData : ObvDatabase {
                         " WHERE " + OWNED_IDENTITY + " = ? " +
                         " AND " + LABEL + " = ?;"
             ).use { statement ->
-                val timestamp = System.currentTimeMillis() + Constants.USER_DATA_REFRESH_INTERVAL
+                val timestamp = System.currentTimeMillis() + (userData?.type?.refreshInterval ?: Constants.USER_DATA_REFRESH_INTERVAL)
                 statement.setLong(1, timestamp)
                 statement.setBytes(2, ownedIdentity!!.getBytes())
                 statement.setBytes(3, label!!.bytes)
@@ -172,6 +180,7 @@ class ServerUserData : ObvDatabase {
         const val TYPE_OWNED_IDENTITY: Int = 1
         const val TYPE_GROUP: Int = 2
         const val TYPE_GROUP_V2: Int = 3
+        const val TYPE_CUSTOM_PHOTO: Int = 4
 
 
         // region constructors
@@ -253,6 +262,23 @@ class ServerUserData : ObvDatabase {
             } catch (_: SQLException) {
                 return null
             }
+        }
+
+        fun createForCustomPhoto(
+            identityManagerSession: IdentityManagerSession,
+            ownedIdentity: Identity,
+            label: UID,
+        ): ServerUserData {
+            val serverUserData = ServerUserData(
+                identityManagerSession,
+                ownedIdentity,
+                label,
+                System.currentTimeMillis() + UserData.Type.CUSTOM_PHOTO.refreshInterval,
+                null,
+                TYPE_CUSTOM_PHOTO
+            )
+            serverUserData.insert()
+            return serverUserData
         }
 
         // endregion

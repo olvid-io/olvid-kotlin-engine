@@ -181,7 +181,7 @@ abstract class EdwardCurve {
             list.add(pointAddition(P3, P4))
         } else {
             val Y4 = scalarMultiplication(b, P2.Y)
-            val X4 = xCoordinateFromY(Y4)
+            val X4 = xCoordinateFromY(Y4) ?: return emptyArray() // if the point is not on the curve, return an empty array
             var P4 = noCheckFactory(X4, Y4, this)
             list.add(pointAddition(P3, P4))
             P4 = noCheckFactory(p!!.subtract(X4), Y4, this)

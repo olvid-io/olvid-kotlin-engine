@@ -38,7 +38,6 @@ import io.olvid.engine.metamanager.IdentityDelegate
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.nio.charset.StandardCharsets
-import java.util.Arrays
 
 object GroupV2 {
     @JvmStatic
@@ -59,43 +58,42 @@ object GroupV2 {
 
         val string: String
             get() {
-                when (this) {
-                    Permission.GROUP_ADMIN -> return "ga"
-                    Permission.REMOTE_DELETE_ANYTHING -> return "rd"
-                    Permission.EDIT_OR_REMOTE_DELETE_OWN_MESSAGES -> return "eo"
-                    Permission.CHANGE_SETTINGS -> return "cs"
-                    Permission.SEND_MESSAGE -> return "sm"
+                return when (this) {
+                    GROUP_ADMIN -> "ga"
+                    REMOTE_DELETE_ANYTHING -> "rd"
+                    EDIT_OR_REMOTE_DELETE_OWN_MESSAGES -> "eo"
+                    CHANGE_SETTINGS -> "cs"
+                    SEND_MESSAGE -> "sm"
                 }
-                return ""
             }
 
         companion object {
             @JvmField
-            val DEFAULT_MEMBER_PERMISSIONS: Array<Permission?> = arrayOf<Permission?>(
-                Permission.EDIT_OR_REMOTE_DELETE_OWN_MESSAGES,
-                Permission.SEND_MESSAGE
+            val DEFAULT_MEMBER_PERMISSIONS: Array<Permission?> = arrayOf(
+                EDIT_OR_REMOTE_DELETE_OWN_MESSAGES,
+                SEND_MESSAGE
             )
             @JvmField
-            val DEFAULT_ADMIN_PERMISSIONS: Array<Permission?> = arrayOf<Permission?>(
-                Permission.GROUP_ADMIN,
-                Permission.EDIT_OR_REMOTE_DELETE_OWN_MESSAGES,
-                Permission.CHANGE_SETTINGS,
-                Permission.SEND_MESSAGE
+            val DEFAULT_ADMIN_PERMISSIONS: Array<Permission?> = arrayOf(
+                GROUP_ADMIN,
+                EDIT_OR_REMOTE_DELETE_OWN_MESSAGES,
+                CHANGE_SETTINGS,
+                SEND_MESSAGE
             )
 
-            private val valueMap: MutableMap<String?, Permission?> = HashMap<String?, Permission?>()
+            private val valueMap: MutableMap<String?, Permission?> = HashMap()
 
             init {
-                valueMap.put("ga", Permission.GROUP_ADMIN)
-                valueMap.put("rd", Permission.REMOTE_DELETE_ANYTHING)
-                valueMap.put("eo", Permission.EDIT_OR_REMOTE_DELETE_OWN_MESSAGES)
-                valueMap.put("cs", Permission.CHANGE_SETTINGS)
-                valueMap.put("sm", Permission.SEND_MESSAGE)
+                valueMap["ga"] = GROUP_ADMIN
+                valueMap["rd"] = REMOTE_DELETE_ANYTHING
+                valueMap["eo"] = EDIT_OR_REMOTE_DELETE_OWN_MESSAGES
+                valueMap["cs"] = CHANGE_SETTINGS
+                valueMap["sm"] = SEND_MESSAGE
             }
 
             @JvmStatic
             fun fromString(value: String?): Permission? {
-                return valueMap.get(value)
+                return valueMap[value]
             }
 
             @JvmStatic
@@ -113,17 +111,13 @@ object GroupV2 {
 
             @JvmStatic
             fun deserializePermissions(serializedPermissions: ByteArray): MutableList<String?> {
-                val permissionStrings: MutableList<String?> = ArrayList<String?>()
+                val permissionStrings: MutableList<String?> = ArrayList()
                 var startPos = 0
                 for (i in serializedPermissions.indices) {
                     if (serializedPermissions[i].toInt() == 0x00) {
                         permissionStrings.add(
                             String(
-                                Arrays.copyOfRange(
-                                    serializedPermissions,
-                                    startPos,
-                                    i
-                                ), StandardCharsets.UTF_8
+                                serializedPermissions.copyOfRange(startPos, i), StandardCharsets.UTF_8
                             )
                         )
                         startPos = i + 1
@@ -132,11 +126,7 @@ object GroupV2 {
                 if (startPos != serializedPermissions.size) {
                     permissionStrings.add(
                         String(
-                            Arrays.copyOfRange(
-                                serializedPermissions,
-                                startPos,
-                                serializedPermissions.size
-                            ), StandardCharsets.UTF_8
+                            serializedPermissions.copyOfRange(startPos, serializedPermissions.size), StandardCharsets.UTF_8
                         )
                     )
                 }
@@ -159,7 +149,7 @@ object GroupV2 {
 
             @JvmStatic
             fun serializePermissionStrings(permissionStrings: MutableCollection<String>): ByteArray? {
-                if (permissionStrings.size == 0) {
+                if (permissionStrings.isEmpty()) {
                     return ByteArray(0)
                 } else {
                     try {
@@ -180,7 +170,7 @@ object GroupV2 {
 
             @JvmStatic
             fun serializePermissions(permissions: Collection<Permission?>): ByteArray? {
-                if (permissions.size == 0) {
+                if (permissions.isEmpty()) {
                     return ByteArray(0)
                 } else {
                     try {
@@ -208,7 +198,7 @@ object GroupV2 {
 
         fun encode(): Encoded {
             return Encoded.of(
-                arrayOf<Encoded>(
+                arrayOf(
                     Encoded.of(groupUid),
                     Encoded.of(serverUrl),
                     Encoded.of(category.toLong()),
@@ -266,8 +256,6 @@ object GroupV2 {
             }
         }
         fun getGroupUid(): UID = groupUid
-        fun getServerUrl(): String = serverUrl
-        fun getCategory(): Int = category
     }
 
 
@@ -290,7 +278,7 @@ object GroupV2 {
                 // first check the administrator is indeed part of the last block list of admins
                 var found = false
                 for (identity in blocks[blocks.size - 1]!!.innerData.administratorIdentities) {
-                    if (identity.equals(latestUpdateAdministratorIdentity)) {
+                    if (identity == latestUpdateAdministratorIdentity) {
                         found = true
                         break
                     }
@@ -309,7 +297,7 @@ object GroupV2 {
                 return this
             }
 
-            if (alreadyTrustedPrefixAdministratorChain != null && alreadyTrustedPrefixAdministratorChain.blocks.size > 0) {
+            if (alreadyTrustedPrefixAdministratorChain != null && alreadyTrustedPrefixAdministratorChain.blocks.isNotEmpty()) {
                 // check the prefix is indeed a prefix
                 if (!isPrefixedBy(alreadyTrustedPrefixAdministratorChain)) {
                     throw Exception("Trusted prefix is not a prefix")
@@ -318,19 +306,19 @@ object GroupV2 {
                 // check the new blocks
                 for (i in alreadyTrustedPrefixAdministratorChain.blocks.size..<blocks.size) {
                     if (!blocks[i]!!.innerData.previousBlockHash.contentEquals(blocks[i - 1]!!.computeSha256())) {
-                        throw Exception("Invalid block hash chaining at block " + i)
+                        throw Exception("Invalid block hash chaining at block $i")
                     }
                     if (!blocks[i]!!.isSignatureValid(
                             blocks[i - 1]!!.innerData.administratorIdentities,
                             blocks[i]!!.innerData.administratorIdentities[0]
                         )
                     ) {
-                        throw Exception("Invalid block signature at block " + i)
+                        throw Exception("Invalid block signature at block $i")
                     }
                 }
             } else {
                 // verify the groupUID
-                if (!groupUid.equals(UID(blocks[0]!!.computeSha256()))) {
+                if (groupUid != UID(blocks[0]!!.computeSha256())) {
                     throw Exception("Invalid groupUid")
                 }
 
@@ -385,10 +373,10 @@ object GroupV2 {
         val adminIdentities: HashSet<Identity?>
             get() {
                 if (blocks.size == 0) {
-                    return java.util.HashSet<Identity?>()
+                    return java.util.HashSet()
                 }
-                return java.util.HashSet<Identity?>(
-                    Arrays.asList<Identity?>(
+                return java.util.HashSet(
+                    listOf<Identity?>(
                         *blocks[blocks.size - 1]!!.innerData.administratorIdentities
                     )
                 )
@@ -402,10 +390,10 @@ object GroupV2 {
             otherAdministratorIdentities: Array<Identity?>,
             prng: PRNGService?
         ): AdministratorsChain? {
-            if (blocks.size == 0) {
+            if (blocks.isEmpty()) {
                 return null
             }
-            if (!Arrays.asList<Identity?>(*blocks[blocks.size - 1]!!.innerData.administratorIdentities)
+            if (!listOf<Identity?>(*blocks[blocks.size - 1]!!.innerData.administratorIdentities)
                     .contains(ownedIdentity)
             ) {
                 Logger.e("Trying to append block to AdministratorsChain using an identity not in the last block!")
@@ -413,7 +401,7 @@ object GroupV2 {
             }
             val newBlocks = arrayOfNulls<Block>(blocks.size + 1)
             System.arraycopy(blocks, 0, newBlocks, 0, blocks.size)
-            newBlocks[newBlocks.size - 1] = AdministratorsChain.Block(
+            newBlocks[newBlocks.size - 1] = Block(
                 session,
                 identityDelegate,
                 blocks[blocks.size - 1]!!,
@@ -615,7 +603,7 @@ object GroupV2 {
                 otherAdministratorIdentities: Array<Identity?>,
                 prng: PRNGService
             ): AdministratorsChain {
-                val firstBlock = AdministratorsChain.Block(
+                val firstBlock = Block(
                     session,
                     identityDelegate,
                     ownedIdentity,
@@ -624,7 +612,7 @@ object GroupV2 {
                 )
                 return AdministratorsChain(
                     UID(firstBlock.computeSha256()),
-                    arrayOf<Block?>(firstBlock),
+                    arrayOf(firstBlock),
                     true
                 )
             }
@@ -633,7 +621,7 @@ object GroupV2 {
             @JvmStatic
             fun of(encoded: Encoded): AdministratorsChain {
                 val encodeds = encoded.decodeList()
-                if (encodeds.size == 0) {
+                if (encodeds.isEmpty()) {
                     throw DecodingException()
                 }
                 val blocks = arrayOfNulls<Block>(encodeds.size)
@@ -721,11 +709,9 @@ object GroupV2 {
                 }
                 val administratorsChain = AdministratorsChain.of(value)
 
-                value = map.get(
-                    DictionaryKey(
-                        KEY_GROUP_MEMBER_IDENTITY_AND_PERMISSIONS_AND_DETAILS_LIST
-                    )
-                )
+                value = map[DictionaryKey(
+                    KEY_GROUP_MEMBER_IDENTITY_AND_PERMISSIONS_AND_DETAILS_LIST
+                )]
                 if (value == null) {
                     throw DecodingException()
                 }
@@ -738,24 +724,24 @@ object GroupV2 {
                     )
                 }
 
-                value = map.get(DictionaryKey(KEY_VERSION))
+                value = map[DictionaryKey(KEY_VERSION)]
                 if (value == null) {
                     throw DecodingException()
                 }
                 val version = value.decodeLong().toInt()
 
-                value = map.get(DictionaryKey(KEY_SERIALIZED_GROUP_DETAILS))
+                value = map[DictionaryKey(KEY_SERIALIZED_GROUP_DETAILS)]
                 if (value == null) {
                     throw DecodingException()
                 }
                 val serializedGroupDetails = value.decodeString()
 
-                value = map.get(DictionaryKey(KEY_SERVER_PHOTO_INFO))
+                value = map[DictionaryKey(KEY_SERVER_PHOTO_INFO)]
                 val serverPhotoInfo =
                     if (value == null) null else ServerPhotoInfo.of(value)
 
-                value = map.get(DictionaryKey(KEY_SERIALIZED_GROUP_TYPE))
-                val serializedGroupType = if (value == null) null else value.decodeString()
+                value = map[DictionaryKey(KEY_SERIALIZED_GROUP_TYPE)]
+                val serializedGroupType = value?.decodeString()
 
                 return ServerBlob(
                     administratorsChain,
@@ -767,28 +753,25 @@ object GroupV2 {
                 )
             }
         }
-        fun getAdministratorsChain(): AdministratorsChain = administratorsChain
-        fun getGroupMemberIdentityAndPermissionsAndDetailsList(): java.util.HashSet<IdentityAndPermissionsAndDetails> = groupMemberIdentityAndPermissionsAndDetailsList
         fun getVersion(): Int = version
-        fun getServerPhotoInfo(): ServerPhotoInfo? = serverPhotoInfo
     }
 
-    class ServerPhotoInfo(// null for keycloak group photo info
-        @JvmField val serverPhotoIdentity: Identity?,
+    class ServerPhotoInfo(
+        @JvmField val serverPhotoIdentity: Identity?, // null for keycloak group photo info
         @JvmField val serverPhotoLabel: UID,
         @JvmField val serverPhotoKey: AuthEncKey
     ) {
         fun encode(): Encoded {
             if (serverPhotoIdentity == null) {
                 return Encoded.of(
-                    arrayOf<Encoded>(
+                    arrayOf(
                         Encoded.of(serverPhotoLabel),
                         Encoded.of(serverPhotoKey),
                     )
                 )
             } else {
                 return Encoded.of(
-                    arrayOf<Encoded>(
+                    arrayOf(
                         Encoded.of(serverPhotoIdentity),
                         Encoded.of(serverPhotoLabel),
                         Encoded.of(serverPhotoKey),
@@ -800,6 +783,13 @@ object GroupV2 {
         override fun equals(other: Any?): Boolean {
             val o = (other as? ServerPhotoInfo) ?: return false
             return serverPhotoIdentity == o.serverPhotoIdentity && serverPhotoLabel == o.serverPhotoLabel && serverPhotoKey == o.serverPhotoKey
+        }
+
+        override fun hashCode(): Int {
+            var result = serverPhotoIdentity.hashCode()
+            result = 31 * result + serverPhotoLabel.hashCode()
+            result = 31 * result + serverPhotoKey.hashCode()
+            return result
         }
 
         companion object {
@@ -823,8 +813,6 @@ object GroupV2 {
                 throw DecodingException()
             }
         }
-        fun getServerPhotoIdentity(): Identity? = serverPhotoIdentity
-        fun getServerPhotoLabel(): UID = serverPhotoLabel
     }
 
     class BlobKeys(// may be null when sent through an asymmetric channel
@@ -835,14 +823,11 @@ object GroupV2 {
         fun encode(): Encoded {
             val map = HashMap<DictionaryKey, Encoded>()
             if (blobMainSeed != null) {
-                map.put(DictionaryKey(KEY_MAIN_SEED), Encoded.of(blobMainSeed))
+                map[DictionaryKey(KEY_MAIN_SEED)] = Encoded.of(blobMainSeed)
             }
-            map.put(DictionaryKey(KEY_VERSION_SEED), Encoded.of(blobVersionSeed!!))
+            map[DictionaryKey(KEY_VERSION_SEED)] = Encoded.of(blobVersionSeed!!)
             if (groupAdminServerAuthenticationPrivateKey != null) {
-                map.put(
-                    DictionaryKey(KEY_GROUP_ADMIN_PRIVATE_KEY),
-                    Encoded.of(groupAdminServerAuthenticationPrivateKey)
-                )
+                map[DictionaryKey(KEY_GROUP_ADMIN_PRIVATE_KEY)] = Encoded.of(groupAdminServerAuthenticationPrivateKey)
             }
             return Encoded.of(map)
         }
@@ -857,17 +842,16 @@ object GroupV2 {
             @Throws(DecodingException::class)
             fun of(encoded: Encoded): BlobKeys {
                 val map: HashMap<DictionaryKey, Encoded> = encoded.decodeDictionary()
-                var value: Encoded?
-                value = map.get(DictionaryKey(KEY_MAIN_SEED))
-                val blobMainSeed = if (value == null) null else value.decodeSeed()
+                var value = map[DictionaryKey(KEY_MAIN_SEED)]
+                val blobMainSeed = value?.decodeSeed()
 
-                value = map.get(DictionaryKey(KEY_VERSION_SEED))
+                value = map[DictionaryKey(KEY_VERSION_SEED)]
                 if (value == null) {
                     throw DecodingException()
                 }
                 val blobVersionSeed = value.decodeSeed()
 
-                value = map.get(DictionaryKey(KEY_GROUP_ADMIN_PRIVATE_KEY))
+                value = map[DictionaryKey(KEY_GROUP_ADMIN_PRIVATE_KEY)]
                 val groupAdminServerAuthenticationPrivateKey =
                     if (value == null) null else value.decodePrivateKey() as ServerAuthenticationPrivateKey?
 
@@ -878,13 +862,12 @@ object GroupV2 {
                 )
             }
         }
-        fun getGroupAdminServerAuthenticationPrivateKey(): ServerAuthenticationPrivateKey? = groupAdminServerAuthenticationPrivateKey
     }
 
     class InvitationCollectedData {
-        @JvmField val inviterIdentityAndBlobMainSeedCandidates: HashMap<Identity?, Seed?> // non null
-        @JvmField val blobVersionSeedCandidates: java.util.HashSet<Seed> // non null
-        @JvmField val groupAdminServerAuthenticationPrivateKeyCandidates: java.util.HashSet<ServerAuthenticationPrivateKey> // non null
+        @JvmField val inviterIdentityAndBlobMainSeedCandidates: HashMap<Identity?, Seed?> // non-null
+        @JvmField val blobVersionSeedCandidates: java.util.HashSet<Seed> // non-null
+        @JvmField val groupAdminServerAuthenticationPrivateKeyCandidates: java.util.HashSet<ServerAuthenticationPrivateKey> // non-null
 
         constructor(
             inviterIdentityAndBlobMainSeedCandidates: HashMap<Identity?, Seed?>,
@@ -898,7 +881,7 @@ object GroupV2 {
         }
 
         constructor() {
-            this.inviterIdentityAndBlobMainSeedCandidates = HashMap<Identity?, Seed?>()
+            this.inviterIdentityAndBlobMainSeedCandidates = HashMap()
             this.blobVersionSeedCandidates = java.util.HashSet<Seed>()
             this.groupAdminServerAuthenticationPrivateKeyCandidates =
                 java.util.HashSet<ServerAuthenticationPrivateKey>()
@@ -906,40 +889,34 @@ object GroupV2 {
 
         fun encode(): Encoded {
             val map = HashMap<DictionaryKey, Encoded>()
-            var encodeds: MutableList<Encoded> = ArrayList<Encoded>()
+            var encodeds: MutableList<Encoded> = ArrayList()
             for (entry in inviterIdentityAndBlobMainSeedCandidates.entries) {
                 encodeds.add(
                     Encoded.of(
-                        arrayOf<Encoded>(
+                        arrayOf(
                             Encoded.of(entry.key!!),
                             Encoded.of(entry.value!!),
                         )
                     )
                 )
             }
-            map.put(
-                DictionaryKey(KEY_INVITER_IDENTITY_AND_MAIN_SEED),
-                Encoded.of(encodeds.toTypedArray<Encoded>())
-            )
-            encodeds = ArrayList<Encoded>()
+            map[DictionaryKey(KEY_INVITER_IDENTITY_AND_MAIN_SEED)] = Encoded.of(encodeds.toTypedArray<Encoded>())
+            encodeds = ArrayList()
             for (seed in blobVersionSeedCandidates) {
                 encodeds.add(Encoded.of(seed))
             }
-            map.put(DictionaryKey(KEY_VERSION_SEED), Encoded.of(encodeds.toTypedArray<Encoded>()))
-            encodeds = ArrayList<Encoded>()
+            map[DictionaryKey(KEY_VERSION_SEED)] = Encoded.of(encodeds.toTypedArray<Encoded>())
+            encodeds = ArrayList()
             for (key in groupAdminServerAuthenticationPrivateKeyCandidates) {
                 encodeds.add(Encoded.of(key))
             }
-            map.put(
-                DictionaryKey(KEY_GROUP_ADMIN_PRIVATE_KEY),
-                Encoded.of(encodeds.toTypedArray<Encoded>())
-            )
+            map[DictionaryKey(KEY_GROUP_ADMIN_PRIVATE_KEY)] = Encoded.of(encodeds.toTypedArray<Encoded>())
             return Encoded.of(map)
         }
 
         fun addBlobKeysCandidates(inviterIdentity: Identity?, blobKeys: BlobKeys) {
             if (inviterIdentity != null && blobKeys.blobMainSeed != null) {
-                inviterIdentityAndBlobMainSeedCandidates.put(inviterIdentity, blobKeys.blobMainSeed)
+                inviterIdentityAndBlobMainSeedCandidates[inviterIdentity] = blobKeys.blobMainSeed
             }
             if (blobKeys.blobVersionSeed != null) {
                 blobVersionSeedCandidates.add(blobKeys.blobVersionSeed)
@@ -958,23 +935,19 @@ object GroupV2 {
             @Throws(DecodingException::class)
             fun of(encoded: Encoded): InvitationCollectedData {
                 val map: HashMap<DictionaryKey, Encoded> = encoded.decodeDictionary()
-                var value: Encoded?
 
                 val inviterIdentityAndBlobMainSeedCandidates = HashMap<Identity?, Seed?>()
-                value = map.get(DictionaryKey(KEY_INVITER_IDENTITY_AND_MAIN_SEED))
+                var value = map[DictionaryKey(KEY_INVITER_IDENTITY_AND_MAIN_SEED)]
                 if (value == null) {
                     throw DecodingException()
                 }
                 for (enc in value.decodeList()) {
                     val list = enc.decodeList()
-                    inviterIdentityAndBlobMainSeedCandidates.put(
-                        list[0].decodeIdentity(),
-                        list[1].decodeSeed()
-                    )
+                    inviterIdentityAndBlobMainSeedCandidates[list[0].decodeIdentity()] = list[1].decodeSeed()
                 }
 
                 val blobVersionSeedCandidates = java.util.HashSet<Seed>()
-                value = map.get(DictionaryKey(KEY_VERSION_SEED))
+                value = map[DictionaryKey(KEY_VERSION_SEED)]
                 if (value == null) {
                     throw DecodingException()
                 }
@@ -984,7 +957,7 @@ object GroupV2 {
 
                 val groupAdminServerAuthenticationPrivateKeyCandidates =
                     java.util.HashSet<ServerAuthenticationPrivateKey>()
-                value = map.get(DictionaryKey(KEY_GROUP_ADMIN_PRIVATE_KEY))
+                value = map[DictionaryKey(KEY_GROUP_ADMIN_PRIVATE_KEY)]
                 if (value == null) {
                     throw DecodingException()
                 }
@@ -1007,13 +980,13 @@ object GroupV2 {
         @JvmField val permissions: java.util.HashSet<Permission>
     ) {
         fun encode(): Encoded {
-            val encodedPermissions: MutableList<Encoded> = ArrayList<Encoded>()
+            val encodedPermissions: MutableList<Encoded> = ArrayList()
             for (permission in permissions) {
                 encodedPermissions.add(Encoded.of(permission.string))
             }
 
             return Encoded.of(
-                arrayOf<Encoded>(
+                arrayOf(
                     Encoded.of(identity),
                     Encoded.of(encodedPermissions.toTypedArray<Encoded>()),
                 )
@@ -1094,7 +1067,7 @@ object GroupV2 {
             if (other !is IdentityAndPermissionsAndDetails) {
                 return false
             }
-            return identity.equals(other.identity)
+            return identity == other.identity
         }
 
         companion object {
@@ -1122,8 +1095,6 @@ object GroupV2 {
             }
         }
         fun getIdentity(): Identity = identity
-        fun getPermissionStrings(): MutableList<String> = permissionStrings
-        fun getSerializedIdentityDetails(): String = serializedIdentityDetails
     }
 
     class IdentifierVersionAndKeys {
@@ -1149,7 +1120,7 @@ object GroupV2 {
 
         fun encode(): Encoded {
             return Encoded.of(
-                arrayOf<Encoded>(
+                arrayOf(
                     groupIdentifier.encode(),
                     Encoded.of(groupVersion.toLong()),
                     blobKeys.encode(),
@@ -1158,8 +1129,5 @@ object GroupV2 {
         }
     }
 
-    class IdentifierAndAdminStatus(@JvmField val groupIdentifier: Identifier?, @JvmField val iAmAdmin: Boolean) {
-    fun getGroupIdentifier(): Identifier? = groupIdentifier
-    fun getIAmAdmin(): Boolean = iAmAdmin
-}
+    class IdentifierAndAdminStatus(@JvmField val groupIdentifier: Identifier?, @JvmField val iAmAdmin: Boolean)
 }

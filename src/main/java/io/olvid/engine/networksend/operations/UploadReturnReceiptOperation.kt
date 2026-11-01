@@ -66,18 +66,17 @@ class UploadReturnReceiptOperation(
                 try {
                     returnReceiptOwnedIdentitiesAndIds =
                         returnReceiptBatchProvider.batchOFReturnReceiptIds ?: emptyArray()
-                    val returnReceiptAndEncryptedPayloads: MutableList<ReturnReceiptAndEncryptedPayload> =
-                        ArrayList<ReturnReceiptAndEncryptedPayload>()
+                    val returnReceiptAndEncryptedPayloads = mutableListOf<ReturnReceiptAndEncryptedPayload>()
 
                     Logger.d("UploadReturnReceiptOperation uploading a batch of " + returnReceiptOwnedIdentitiesAndIds.size)
 
                     val returnReceiptIdsByIdentity = HashMap<Identity?, MutableList<Long?>?>()
                     for (identityAndUid in returnReceiptOwnedIdentitiesAndIds) {
                         if (identityAndUid == null) continue
-                        var list = returnReceiptIdsByIdentity.get(identityAndUid.identity)
+                        var list = returnReceiptIdsByIdentity[identityAndUid.identity]
                         if (list == null) {
-                            list = ArrayList<Long?>()
-                            returnReceiptIdsByIdentity.put(identityAndUid.identity, list)
+                            list = ArrayList()
+                            returnReceiptIdsByIdentity[identityAndUid.identity] = list
                         }
                         list.add(identityAndUid.lng)
                     }
@@ -112,14 +111,14 @@ class UploadReturnReceiptOperation(
                                 val attachmentNumber = returnReceipt.attachmentNumber
                                 if (attachmentNumber == null) {
                                     payload = Encoded.of(
-                                        arrayOf<Encoded>(
+                                        arrayOf(
                                             Encoded.of(returnReceipt.getOwnedIdentity()),
                                             Encoded.of(returnReceipt.status.toLong()),
                                         )
                                     )
                                 } else {
                                     payload = Encoded.of(
-                                        arrayOf<Encoded>(
+                                        arrayOf(
                                             Encoded.of(returnReceipt.getOwnedIdentity()),
                                             Encoded.of(returnReceipt.status.toLong()),
                                             Encoded.of(attachmentNumber.toLong()),
@@ -127,10 +126,11 @@ class UploadReturnReceiptOperation(
                                     )
                                 }
 
+                                val diversificationTag = (returnReceipt.nonce ?: throw Exception()) + payload.bytes
                                 val prngSeed =
                                     sendManagerSession.identityDelegate.getDeterministicSeedForOwnedIdentity(
                                         ownedIdentity,
-                                        returnReceipt.nonce,
+                                        diversificationTag,
                                         IdentityDelegate.DeterministicSeedContext.ENCRYPT_RETURN_RECEIPT
                                     )
                                 val prng = Suite.getPRNG(PRNG.PRNG_HMAC_SHA256, prngSeed!!)

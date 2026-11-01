@@ -206,18 +206,12 @@ class ChannelManager(metaManager: MetaManager) : ChannelDelegate, ProcessDownloa
                     }
 
 
-                    val ownedIdentityMap = deviceUidsMap.get(ownedIdentity)
-                    if (ownedIdentityMap == null) {
-                        continue
-                    }
+                    val ownedIdentityMap = deviceUidsMap[ownedIdentity] ?: continue
                     for (contactIdentity in ownedIdentityMap.keys) {
                         if (contactIdentity?.equals(ownedIdentity) == true) {
                             continue
                         }
-                        val deviceUidSet = ownedIdentityMap.get(contactIdentity)
-                        if (deviceUidSet == null) {
-                            continue
-                        }
+                        val deviceUidSet = ownedIdentityMap[contactIdentity] ?: continue
                         for (contactDeviceUid in deviceUidSet) {
                             // check if a ChannelCreationProtocolInstance exists for this device
                             try {
@@ -246,7 +240,6 @@ class ChannelManager(metaManager: MetaManager) : ChannelDelegate, ProcessDownloa
                                             contactDeviceUid
                                         )
                                     }
-                                    break
                                 }
                             } catch (_: Exception) {
                                 // nothing to do

@@ -19,6 +19,7 @@
 package io.olvid.engine.metamanager
 
 import io.olvid.engine.datatypes.BackupSeed
+import io.olvid.engine.datatypes.Identity
 import io.olvid.engine.datatypes.UID
 import io.olvid.engine.engine.types.ObvDeviceBackupForRestore
 import io.olvid.engine.engine.types.ObvProfileBackupsForRestore
@@ -34,7 +35,7 @@ interface BackupV2Delegate {
     fun deleteDeviceBackupSeed(backupSeed: BackupSeed?)
     fun backupDeviceAndProfilesNow(): Boolean
     fun fetchDeviceBackup(server: String?, backupSeed: BackupSeed?): ObvDeviceBackupForRestore?
-    fun fetchProfileBackups(server: String?, backupSeed: BackupSeed?): ObvProfileBackupsForRestore?
+    fun fetchProfileBackups(identity: Identity, backupSeed: BackupSeed): ObvProfileBackupsForRestore?
     fun deleteProfileBackupSnapshot(
         server: String?,
         backupSeed: BackupSeed?,

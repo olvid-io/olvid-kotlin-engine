@@ -39,13 +39,14 @@ class ObvSyncAtom private constructor(
     @JvmField val messageIdentifier: MessageIdentifier? = null,
     @JvmField val muteNotification: MuteNotification? = null,
     @JvmField val preferredReaction: PreferredReaction? = null,
+    @JvmField val serverPhotoInfo: GroupV2.ServerPhotoInfo? = null,
 ) {
     val isAppSyncItem: Boolean
         get() {
             return when (syncType) {
                 TYPE_CONTACT_NICKNAME_CHANGE, TYPE_GROUP_V1_NICKNAME_CHANGE, TYPE_GROUP_V2_NICKNAME_CHANGE, TYPE_CONTACT_PERSONAL_NOTE_CHANGE, TYPE_GROUP_V1_PERSONAL_NOTE_CHANGE, TYPE_GROUP_V2_PERSONAL_NOTE_CHANGE, TYPE_OWN_PROFILE_NICKNAME_CHANGE, TYPE_CONTACT_CUSTOM_HUE_CHANGE, TYPE_CONTACT_SEND_READ_RECEIPT_CHANGE, TYPE_GROUP_V1_SEND_READ_RECEIPT_CHANGE, TYPE_GROUP_V2_SEND_READ_RECEIPT_CHANGE, TYPE_PINNED_DISCUSSIONS_CHANGE, TYPE_SETTING_DEFAULT_SEND_READ_RECEIPTS, TYPE_SETTING_AUTO_JOIN_GROUPS, TYPE_BOOKMARKED_MESSAGE_CHANGE, TYPE_ARCHIVED_DISCUSSIONS_CHANGE, TYPE_DISCUSSIONS_MUTE_CHANGE, TYPE_SETTING_LAST_RATING, TYPE_SETTING_UNARCHIVE_ON_NOTIFICATION, TYPE_STOP_SUGGESTING_CONTACT, TYPE_PREFERRED_REACTION_CHANGE, TYPE_UNREAD_DISCUSSIONS_CHANGE -> true
 
-                TYPE_TRUST_CONTACT_DETAILS, TYPE_TRUST_GROUP_V1_DETAILS, TYPE_TRUST_GROUP_V2_DETAILS -> false
+                TYPE_TRUST_CONTACT_DETAILS, TYPE_TRUST_GROUP_V1_DETAILS, TYPE_TRUST_GROUP_V2_DETAILS, TYPE_CUSTOM_PHOTO_CHANGE -> false
                 else -> false
             }
         }
@@ -229,6 +230,15 @@ class ObvSyncAtom private constructor(
 
             TYPE_PREFERRED_REACTION_CHANGE -> {
                 encodeds.add(preferredReaction!!.encode())
+            }
+
+            TYPE_CUSTOM_PHOTO_CHANGE -> {
+                encodeds.add(discussionIdentifiers!!.single().encode()!!)
+                encodeds.add(Encoded.of(booleanValue!!))
+                encodeds.add(Encoded.of(integerValue!!.toLong()))
+                if (serverPhotoInfo != null) {
+                    encodeds.add(serverPhotoInfo.encode())
+                }
             }
 
             else -> {
@@ -435,6 +445,12 @@ class ObvSyncAtom private constructor(
         const val TYPE_STOP_SUGGESTING_CONTACT: Int = 22
         const val TYPE_PREFERRED_REACTION_CHANGE: Int = 23
         const val TYPE_UNREAD_DISCUSSIONS_CHANGE: Int = 24
+        const val TYPE_CUSTOM_PHOTO_CHANGE: Int = 26 // 25 is reserved by the LiveKit branch
+
+        // integerValue of a TYPE_CUSTOM_PHOTO_CHANGE
+        const val CUSTOM_PHOTO_NONE: Int = 0
+        const val CUSTOM_PHOTO_SET: Int = 1 // serverPhotoInfo is set
+        const val CUSTOM_PHOTO_HIDDEN: Int = 2 // the published photo is hidden
 
         @JvmStatic @Throws(DecodingException::class)
         fun createContactNicknameChange(
@@ -694,6 +710,23 @@ class ObvSyncAtom private constructor(
             )
         }
 
+        // onlyIfNone: the receiving device keeps its own custom photo if it already has one (used when uploading
+        // pre-existing photos)
+        @JvmStatic fun createCustomPhotoChange(
+            target: DiscussionIdentifier,
+            serverPhotoInfo: GroupV2.ServerPhotoInfo?,
+            hidden: Boolean,
+            onlyIfNone: Boolean,
+        ): ObvSyncAtom {
+            return ObvSyncAtom(
+                TYPE_CUSTOM_PHOTO_CHANGE,
+                integerValue = if (serverPhotoInfo != null) CUSTOM_PHOTO_SET else if (hidden) CUSTOM_PHOTO_HIDDEN else CUSTOM_PHOTO_NONE,
+                booleanValue = onlyIfNone,
+                discussionIdentifiers = listOf(target),
+                serverPhotoInfo = serverPhotoInfo,
+            )
+        }
+
         @JvmStatic @Throws(DecodingException::class)
         fun of(encoded: Encoded): ObvSyncAtom {
             val encodeds: Array<Encoded> = encoded.decodeList()
@@ -929,6 +962,20 @@ class ObvSyncAtom private constructor(
                             syncType,
                             booleanValue = encodeds[2].decodeBoolean(),
                             discussionIdentifiers = discussionIdentifiers,
+                        )
+                    }
+                }
+
+                TYPE_CUSTOM_PHOTO_CHANGE -> {
+                    val mode = if (encodeds.size >= 4) encodeds[3].decodeLong().toInt() else null
+                    if ((encodeds.size == 4 && (mode == CUSTOM_PHOTO_NONE || mode == CUSTOM_PHOTO_HIDDEN))
+                        || (encodeds.size == 5 && mode == CUSTOM_PHOTO_SET)) {
+                        return ObvSyncAtom(
+                            syncType,
+                            integerValue = mode,
+                            booleanValue = encodeds[2].decodeBoolean(),
+                            discussionIdentifiers = listOf(DiscussionIdentifier.of(encodeds[1])),
+                            serverPhotoInfo = if (encodeds.size == 5) GroupV2.ServerPhotoInfo.of(encodeds[4]) else null,
                         )
                     }
                 }

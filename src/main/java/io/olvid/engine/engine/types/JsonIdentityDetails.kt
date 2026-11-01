@@ -288,10 +288,10 @@ class JsonIdentityDetails {
                 return lastName
             }
 
-            if (lastFirst) {
-                return lastName + " " + firstName
+            return if (lastFirst) {
+                "$lastName $firstName"
             } else {
-                return firstName + " " + lastName
+                "$firstName $lastName"
             }
         }
 

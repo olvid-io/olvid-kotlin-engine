@@ -26,6 +26,7 @@ import io.olvid.engine.datatypes.notifications.IdentityNotifications
 import io.olvid.engine.engine.types.EngineNotifications
 import io.olvid.engine.engine.types.JsonIdentityDetailsWithVersionAndPhoto
 import io.olvid.engine.engine.types.identities.ObvIdentity
+import io.olvid.engine.engine.types.sync.ObvSyncAtom
 import io.olvid.engine.notification.NotificationManager
 
 class NotificationListenerIdentity(private val engine: Engine) : NotificationListener {
@@ -52,6 +53,7 @@ class NotificationListenerIdentity(private val engine: Engine) : NotificationLis
             IdentityNotifications.NOTIFICATION_CONTACT_ONE_TO_ONE_CHANGED,
             IdentityNotifications.NOTIFICATION_CONTACT_RECENTLY_ONLINE_CHANGED,
             IdentityNotifications.NOTIFICATION_OWNED_DEVICE_LIST_CHANGED,
+            IdentityNotifications.NOTIFICATION_CUSTOM_PHOTO_UPDATED,
         )) {
             notificationManager.addListener(notificationName, this)
         }
@@ -542,6 +544,24 @@ class NotificationListenerIdentity(private val engine: Engine) : NotificationLis
 
                 engine.postEngineNotification(
                     EngineNotifications.OWNED_IDENTITY_DEVICE_LIST_CHANGED,
+                    engineInfo
+                )
+            }
+
+            IdentityNotifications.NOTIFICATION_CUSTOM_PHOTO_UPDATED -> {
+                val ownedIdentity =
+                    userInfo?.get(IdentityNotifications.NOTIFICATION_CUSTOM_PHOTO_UPDATED_OWNED_IDENTITY_KEY) as? Identity?
+                        ?: return
+                val target =
+                    userInfo[IdentityNotifications.NOTIFICATION_CUSTOM_PHOTO_UPDATED_TARGET_KEY] as? ObvSyncAtom.DiscussionIdentifier?
+                        ?: return
+
+                val engineInfo = HashMap<String, Any?>()
+                engineInfo[EngineNotifications.CUSTOM_PHOTO_CHANGED_BYTES_OWNED_IDENTITY_KEY] = ownedIdentity.getBytes()
+                engineInfo[EngineNotifications.CUSTOM_PHOTO_CHANGED_TARGET_KEY] = target
+
+                engine.postEngineNotification(
+                    EngineNotifications.CUSTOM_PHOTO_CHANGED,
                     engineInfo
                 )
             }

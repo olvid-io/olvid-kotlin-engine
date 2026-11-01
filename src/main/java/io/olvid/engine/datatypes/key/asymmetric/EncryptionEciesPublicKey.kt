@@ -34,12 +34,20 @@ abstract class EncryptionEciesPublicKey(
 
     init {
         try {
-            this.ay = key.get(DictionaryKey(PUBLIC_Y_COORD_KEY_NAME))!!.decodeBigUInt()
-            val xKey: DictionaryKey = DictionaryKey(PUBLIC_X_COORD_KEY_NAME)
-            if (key.containsKey(xKey)) {
-                this.ax = key.get(xKey)!!.decodeBigUInt()
-            } else {
-                this.ax = null
+            this.ay = key[DictionaryKey(PUBLIC_Y_COORD_KEY_NAME)]!!.decodeBigUInt().also { ay ->
+                getCurve()?.p?.let { p ->
+                    if (p.compareTo(ay) != 1) {
+                        throw DecodingException()
+                    }
+                }
+            }
+            val xKey = DictionaryKey(PUBLIC_X_COORD_KEY_NAME)
+            this.ax = key[xKey]?.decodeBigUInt()?.also { ax ->
+                getCurve()?.p?.let { p ->
+                    if (p.compareTo(ax) != 1) {
+                        throw DecodingException()
+                    }
+                }
             }
         } catch (_: DecodingException) {
             throw InvalidParameterException()
@@ -52,9 +60,7 @@ abstract class EncryptionEciesPublicKey(
             compactKey[0] = algorithmImplementation
             try {
                 val yBytes = Encoded.bytesFromBigUInt(
-                    key.get(
-                        DictionaryKey(EncryptionEciesPublicKey.PUBLIC_Y_COORD_KEY_NAME)
-                    )!!.decodeBigUInt(), compactKey.size - 1
+                    key[DictionaryKey(PUBLIC_Y_COORD_KEY_NAME)]!!.decodeBigUInt(), compactKey.size - 1
                 )
                 System.arraycopy(yBytes, 0, compactKey, 1, yBytes.size)
             } catch (_: EncodingException) {

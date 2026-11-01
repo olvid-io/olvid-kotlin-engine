@@ -159,6 +159,10 @@ object IdentityNotifications {
     const val NOTIFICATION_SERVER_USER_DATA_CAN_BE_DELETED_OWNED_IDENTITY_KEY = "owned_identity" // Identity
     const val NOTIFICATION_SERVER_USER_DATA_CAN_BE_DELETED_LABEL_KEY = "label" // UID
 
+    const val NOTIFICATION_CUSTOM_PHOTO_UPDATED = "identity_manager_notification_custom_photo_updated"
+    const val NOTIFICATION_CUSTOM_PHOTO_UPDATED_OWNED_IDENTITY_KEY = "owned_identity" // Identity
+    const val NOTIFICATION_CUSTOM_PHOTO_UPDATED_TARGET_KEY = "target" // ObvSyncAtom.DiscussionIdentifier
+
     const val NOTIFICATION_CONTACT_CAPABILITIES_UPDATED = "identity_manager_notification_contact_capabilities_updated"
     const val NOTIFICATION_CONTACT_CAPABILITIES_UPDATED_CONTACT_IDENTITY_KEY = "contact_identity" // Identity
     const val NOTIFICATION_CONTACT_CAPABILITIES_UPDATED_OWNED_IDENTITY_KEY = "owned_identity" // Identity

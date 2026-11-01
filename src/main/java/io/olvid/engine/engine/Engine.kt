@@ -52,6 +52,7 @@ import io.olvid.engine.datatypes.containers.ServerQuery.BackupsV2DownloadProfile
 import io.olvid.engine.datatypes.containers.ServerQuery.KeycloakIdBasedAuthGetSessionQuery
 import io.olvid.engine.datatypes.containers.ServerQuery.KeycloakIdBasedAuthRequestChallengeQuery
 import io.olvid.engine.datatypes.containers.ServerQuery.OwnedDeviceDiscoveryQuery
+import io.olvid.engine.datatypes.containers.ServerQuery.PutUserDataQuery
 import io.olvid.engine.datatypes.containers.ServerQuery.RegisterApiKeyQuery
 import io.olvid.engine.datatypes.key.asymmetric.EncryptionEciesMDCKeyPair
 import io.olvid.engine.datatypes.key.asymmetric.ServerAuthenticationECSdsaMDCKeyPair
@@ -3610,7 +3611,7 @@ class Engine(
         try {
             val backupSeed = BackupSeed(profileBackupSeed!!)
             val identity = Identity.of(bytesIdentity!!)
-            return backupManager.fetchProfileBackups(identity.server, backupSeed)
+            return backupManager.fetchProfileBackups(identity, backupSeed)
         } catch (e: Exception) {
             Logger.x(e)
             return ObvProfileBackupsForRestore(
@@ -4056,6 +4057,51 @@ class Engine(
                 )
                 engineSession.session.commit()
             }
+        }
+    }
+
+    @Throws(Exception::class)
+    override fun setCustomPhoto(
+        bytesOwnedIdentity: ByteArray,
+        target: ObvSyncAtom.DiscussionIdentifier,
+        absolutePhotoUrl: String?,
+        onlyIfNone: Boolean
+    ) {
+        val ownedIdentity = Identity.of(bytesOwnedIdentity)
+        getSession().use { engineSession ->
+            engineSession.session.startTransaction()
+            if (onlyIfNone && identityManager.hasCustomPhoto(engineSession.session, ownedIdentity, target)) {
+                return
+            }
+            val toUpload = identityManager.setCustomPhoto(engineSession.session, ownedIdentity, target, absolutePhotoUrl, prng)
+            if (toUpload != null) {
+                val (photoUrl, serverPhotoInfo) = toUpload
+                fetchManager.createPendingServerQuery(
+                    engineSession.session,
+                    ServerQuery(
+                        Encoded.of(arrayOf<Encoded>()),
+                        ownedIdentity,
+                        PutUserDataQuery(ownedIdentity, serverPhotoInfo.serverPhotoLabel, photoUrl, serverPhotoInfo.serverPhotoKey)
+                    )
+                )
+            }
+            propagateEngineSyncAtomToOtherDevicesIfNeeded(
+                engineSession.session,
+                ownedIdentity,
+                ObvSyncAtom.createCustomPhotoChange(target, toUpload?.second, absolutePhotoUrl == "", onlyIfNone)
+            )
+            engineSession.session.commit()
+        }
+    }
+
+    override fun getCustomPhotoUrl(bytesOwnedIdentity: ByteArray, target: ObvSyncAtom.DiscussionIdentifier): String? {
+        try {
+            getSession().use { engineSession ->
+                return identityManager.getCustomPhotoUrl(engineSession.session, Identity.of(bytesOwnedIdentity), target)
+            }
+        } catch (e: Exception) {
+            Logger.x(e)
+            return null
         }
     }
 

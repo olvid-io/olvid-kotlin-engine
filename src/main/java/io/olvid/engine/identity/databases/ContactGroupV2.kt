@@ -49,6 +49,7 @@ import io.olvid.engine.datatypes.notifications.IdentityNotifications
 import io.olvid.engine.encoder.DecodingException
 import io.olvid.engine.encoder.Encoded
 import io.olvid.engine.engine.types.JsonKeycloakUserDetails
+import io.olvid.engine.engine.types.sync.ObvSyncAtom.DiscussionIdentifier
 import io.olvid.engine.identity.datatypes.IdentityManagerSession
 import io.olvid.engine.identity.datatypes.KeycloakGroupBlob
 import io.olvid.engine.identity.datatypes.KeycloakGroupMemberAndPermissions
@@ -990,6 +991,8 @@ class ContactGroupV2 : ObvDatabase {
             statement.setBytes(4, ownedIdentity.getBytes())
             statement.executeUpdate()
         }
+        CustomPhoto.get(identityManagerSession, ownedIdentity, DiscussionIdentifier(DiscussionIdentifier.GROUP_V2, groupIdentifier.bytes))
+            ?.deleteAndReleaseServerCopy(false)
     }
 
     @Throws(SQLException::class)

@@ -639,11 +639,11 @@ class BackupManager(
     }
 
     override fun fetchProfileBackups(
-        server: String?,
-        backupSeed: BackupSeed?
+        identity: Identity,
+        backupSeed: BackupSeed
     ): ObvProfileBackupsForRestore? {
         val profileBackupsFetchTask =
-            ProfileBackupsFetchTask(server, backupSeed!!, this, sslSocketFactory, userAgentOverride)
+            ProfileBackupsFetchTask(identity, backupSeed, this, sslSocketFactory, userAgentOverride)
         when (profileBackupsFetchTask.execute()) {
             BackupTaskStatus.SUCCESS -> {
                 // download successful

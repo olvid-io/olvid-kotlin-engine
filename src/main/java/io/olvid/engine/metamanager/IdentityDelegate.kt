@@ -1340,4 +1340,36 @@ interface IdentityDelegate {
 
     @Throws(Exception::class)
     fun downloadAllUserData(session: Session)
+
+    // custom photos
+    // absolutePhotoUrl: null removes the custom photo, "" hides the published photo.
+    // Returns the photo url and server info to upload, null if there is nothing to upload
+    @Throws(Exception::class)
+    fun setCustomPhoto(
+        session: Session,
+        ownedIdentity: Identity,
+        target: ObvSyncAtom.DiscussionIdentifier,
+        absolutePhotoUrl: String?,
+        prng: PRNGService
+    ): Pair<String, ServerPhotoInfo>?
+
+    @Throws(Exception::class)
+    fun hasCustomPhoto(session: Session, ownedIdentity: Identity, target: ObvSyncAtom.DiscussionIdentifier): Boolean
+
+    // returned path is relative to the engine base directory, "" if hidden, null if there is none or if it was not downloaded yet
+    @Throws(Exception::class)
+    fun getCustomPhotoUrl(session: Session, ownedIdentity: Identity, target: ObvSyncAtom.DiscussionIdentifier): String?
+
+    // returns the photo url (null if not downloaded yet) and key of the custom photo uploaded with this label
+    @Throws(Exception::class)
+    fun getCustomPhotoUrlAndKey(session: Session, ownedIdentity: Identity, label: UID): Pair<String?, AuthEncKey>?
+
+    @Throws(Exception::class)
+    fun setCustomPhotoDownloaded(
+        session: Session,
+        ownedIdentity: Identity,
+        target: ObvSyncAtom.DiscussionIdentifier,
+        serverPhotoInfo: ServerPhotoInfo,
+        photo: ByteArray
+    )
 }

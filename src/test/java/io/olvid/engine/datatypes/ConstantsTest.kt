@@ -442,10 +442,11 @@ class ConstantsTest {
     // All three must remain stable across migrations.
 
     @Test
-    fun testCurrentEngineDbSchemaVersionIsExactly53() {
+    fun testCurrentEngineDbSchemaVersionIsExactly54() {
         // Bumped 51 -> 52 by the UI-dialog version-guard change (received_message.user_dialog_version).
         // Bumped 52 -> 53 by the pre-key message replay protection (owned_pre_key_signature_received table).
-        assertEquals(53, Constants.CURRENT_ENGINE_DB_SCHEMA_VERSION)
+        // Bumped 53 -> 54 by the synced custom photos (custom_photo table).
+        assertEquals(54, Constants.CURRENT_ENGINE_DB_SCHEMA_VERSION)
     }
 
     @Test

@@ -520,6 +520,12 @@ object EngineNotifications {
     const val OWNED_IDENTITY_DEVICE_LIST_CHANGED_BYTES_OWNED_IDENTITY_KEY: String =
         "bytes_owned_identity" // byte[]
 
+    // a custom photo changed on another owned device, or was downloaded after a transfer or a backup restore:
+    // read it with getCustomPhotoUrl
+    const val CUSTOM_PHOTO_CHANGED: String = "engine_notification_custom_photo_changed"
+    const val CUSTOM_PHOTO_CHANGED_BYTES_OWNED_IDENTITY_KEY: String = "bytes_owned_identity" // byte[]
+    const val CUSTOM_PHOTO_CHANGED_TARGET_KEY: String = "target" // ObvSyncAtom.DiscussionIdentifier
+
     const val KEYCLOAK_SYNCHRONIZATION_REQUIRED: String =
         "engine_notification_keycloak_synchronization_required"
     const val KEYCLOAK_SYNCHRONIZATION_REQUIRED_BYTES_OWNED_IDENTITY_KEY: String =

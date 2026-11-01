@@ -364,12 +364,11 @@ internal abstract class SignatureECSdsa(private val curve: EdwardCurve) : Signat
                 return false
             }
 
-            val hash = Arrays.copyOfRange(signature, 0, signature.size - l)
+            val hash = signature.copyOfRange(0, signature.size - l)
             val e = bigUIntFromBytes(hash)
-            val y =
-                bigUIntFromBytes(Arrays.copyOfRange(signature, signature.size - l, signature.size))
+            val y = bigUIntFromBytes(signature.copyOfRange(signature.size - l, signature.size))
             // check that the signature y is indeed smaller than q (to prevent undetected signature reuse)
-            if (y.compareTo(curve.q) >= 0) {
+            if (y >= curve.q) {
                 return false
             }
             val points = curve.mulAdd(y, curve.G!!, e, A)
@@ -389,8 +388,7 @@ internal abstract class SignatureECSdsa(private val curve: EdwardCurve) : Signat
                 }
             }
             return found
-        } catch (_: EncodingException) {
-        }
+        } catch (_: Exception) { }
         return false
     }
 }

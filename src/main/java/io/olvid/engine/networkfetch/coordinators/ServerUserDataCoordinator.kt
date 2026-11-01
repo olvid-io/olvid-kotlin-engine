@@ -139,26 +139,8 @@ class ServerUserDataCoordinator(
                                     userData.ownedIdentity,
                                     userData.label
                                 )
-                            } else if (userData.nextRefreshTimestamp < System.currentTimeMillis()) {
-                                queueNewRefreshUserDataOperation(
-                                    userData.ownedIdentity,
-                                    userData.label
-                                )
                             } else {
-                                scheduler.schedule(
-                                    IdentityAndUid(
-                                        userData.ownedIdentity!!,
-                                        userData.label
-                                    ),
-                                    Runnable {
-                                        queueNewRefreshUserDataOperation(
-                                            userData.ownedIdentity,
-                                            userData.label
-                                        )
-                                    },
-                                    "ServerQueryOperation",
-                                    userData.nextRefreshTimestamp - System.currentTimeMillis()
-                                )
+                                refreshNowOrSchedule(userData)
                             }
                         }
 
@@ -190,26 +172,8 @@ class ServerUserDataCoordinator(
                                             userData.ownedIdentity,
                                             userData.label
                                         )
-                                    } else if (userData.nextRefreshTimestamp < System.currentTimeMillis()) {
-                                        queueNewRefreshUserDataOperation(
-                                            userData.ownedIdentity,
-                                            userData.label
-                                        )
                                     } else {
-                                        scheduler.schedule(
-                                            IdentityAndUid(
-                                                userData.ownedIdentity!!,
-                                                userData.label
-                                            ),
-                                            Runnable {
-                                                queueNewRefreshUserDataOperation(
-                                                    userData.ownedIdentity,
-                                                    userData.label
-                                                )
-                                            },
-                                            "ServerQueryOperation",
-                                            userData.nextRefreshTimestamp - System.currentTimeMillis()
-                                        )
+                                        refreshNowOrSchedule(userData)
                                     }
                                 } catch (_: Exception) {
                                     queueNewDeleteUserDataOperation(
@@ -232,26 +196,24 @@ class ServerUserDataCoordinator(
                                     userData.ownedIdentity,
                                     userData.label
                                 )
-                            } else if (userData.nextRefreshTimestamp < System.currentTimeMillis()) {
-                                queueNewRefreshUserDataOperation(
+                            } else {
+                                refreshNowOrSchedule(userData)
+                            }
+                        }
+
+                        UserData.Type.CUSTOM_PHOTO -> {
+                            val urlAndKey = fetchManagerSession.identityDelegate.getCustomPhotoUrlAndKey(
+                                fetchManagerSession.session,
+                                userData.ownedIdentity!!,
+                                userData.label!!
+                            )
+                            if (urlAndKey == null) { // photo changed, removed, or its contact or group is gone
+                                queueNewDeleteUserDataOperation(
                                     userData.ownedIdentity,
                                     userData.label
                                 )
                             } else {
-                                scheduler.schedule(
-                                    IdentityAndUid(
-                                        userData.ownedIdentity!!,
-                                        userData.label
-                                    ),
-                                    Runnable {
-                                        queueNewRefreshUserDataOperation(
-                                            userData.ownedIdentity,
-                                            userData.label
-                                        )
-                                    },
-                                    "ServerQueryOperation",
-                                    userData.nextRefreshTimestamp - System.currentTimeMillis()
-                                )
+                                refreshNowOrSchedule(userData)
                             }
                         }
 
@@ -292,6 +254,19 @@ class ServerUserDataCoordinator(
             }
         } catch (e: Exception) {
             Logger.x(e)
+        }
+    }
+
+    private fun refreshNowOrSchedule(userData: UserData) {
+        if (userData.nextRefreshTimestamp < System.currentTimeMillis()) {
+            queueNewRefreshUserDataOperation(userData.ownedIdentity, userData.label)
+        } else {
+            scheduler.schedule(
+                IdentityAndUid(userData.ownedIdentity!!, userData.label!!),
+                Runnable { queueNewRefreshUserDataOperation(userData.ownedIdentity, userData.label) },
+                "ServerQueryOperation",
+                userData.nextRefreshTimestamp - System.currentTimeMillis()
+            )
         }
     }
 
@@ -431,6 +406,17 @@ class ServerUserDataCoordinator(
                                         key = serverPhotoInfo!!.serverPhotoKey
                                     }
 
+                                    UserData.Type.CUSTOM_PHOTO -> {
+                                        // photoUrl is null if this device never downloaded it: let another device upload it
+                                        val urlAndKey = fetchManagerSession.identityDelegate.getCustomPhotoUrlAndKey(
+                                            fetchManagerSession.session,
+                                            ownedIdentity,
+                                            label
+                                        )
+                                        photoUrl = urlAndKey?.first
+                                        key = urlAndKey?.second
+                                    }
+
                                     else -> {
                                         photoUrl = null
                                         key = null
@@ -500,11 +486,19 @@ class ServerUserDataCoordinator(
     }
 
     fun newUserDataUploaded(ownedIdentity: Identity, label: UID) {
+        val refreshInterval = try {
+            fetchManagerSessionFactory.session!!.use { fetchManagerSession ->
+                fetchManagerSession.identityDelegate!!.getUserData(fetchManagerSession.session, ownedIdentity, label)?.type?.refreshInterval
+            }
+        } catch (e: Exception) {
+            Logger.x(e)
+            null
+        } ?: Constants.USER_DATA_REFRESH_INTERVAL
         scheduler.schedule(
             IdentityAndUid(ownedIdentity, label),
             Runnable { queueNewRefreshUserDataOperation(ownedIdentity, label) },
             "ServerQueryOperation",
-            Constants.USER_DATA_REFRESH_INTERVAL
+            refreshInterval
         )
     }
 

@@ -91,6 +91,7 @@ import io.olvid.engine.protocol.protocols.ContactMutualIntroductionProtocol
 import io.olvid.engine.protocol.protocols.DeviceCapabilitiesDiscoveryProtocol.InitialForAddingOwnCapabilitiesMessage
 import io.olvid.engine.protocol.protocols.DeviceDiscoveryProtocol
 import io.olvid.engine.protocol.protocols.DownloadGroupPhotoChildProtocol
+import io.olvid.engine.protocol.protocols.DownloadCustomPhotoProtocol
 import io.olvid.engine.protocol.protocols.DownloadGroupV2PhotoProtocol
 import io.olvid.engine.protocol.protocols.DownloadIdentityPhotoChildProtocol
 import io.olvid.engine.protocol.protocols.FullRatchetProtocol
@@ -930,6 +931,27 @@ class ProtocolManager(
         val message: ChannelMessageToSend? = DownloadGroupV2PhotoProtocol.InitialMessage(
             coreProtocolMessage,
             groupIdentifier,
+            serverPhotoInfo
+        ).generateChannelProtocolMessageToSend()
+        protocolManagerSession.channelDelegate!!.post(protocolManagerSession.session, message, prng)
+    }
+
+    @Throws(Exception::class)
+    override fun startDownloadCustomPhotoProtocolWithinTransaction(
+        session: Session,
+        ownedIdentity: Identity,
+        target: ObvSyncAtom.DiscussionIdentifier,
+        serverPhotoInfo: ServerPhotoInfo
+    ) {
+        val protocolManagerSession = wrapSession(session)
+        val coreProtocolMessage = CoreProtocolMessage(
+            SendChannelInfo.createLocalChannelInfo(ownedIdentity),
+            ConcreteProtocol.DOWNLOAD_CUSTOM_PHOTO_PROTOCOL_ID,
+            UID(prng)
+        )
+        val message: ChannelMessageToSend? = DownloadCustomPhotoProtocol.InitialMessage(
+            coreProtocolMessage,
+            target,
             serverPhotoInfo
         ).generateChannelProtocolMessageToSend()
         protocolManagerSession.channelDelegate!!.post(protocolManagerSession.session, message, prng)

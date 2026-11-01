@@ -22,7 +22,7 @@ import java.nio.charset.StandardCharsets
 
 
 object Constants {
-    const val CURRENT_ENGINE_DB_SCHEMA_VERSION: Int = 53
+    const val CURRENT_ENGINE_DB_SCHEMA_VERSION: Int = 54
     const val SERVER_API_VERSION: Int = 21
     const val CURRENT_BACKUP_JSON_VERSION: Int = 0
 
@@ -74,6 +74,7 @@ object Constants {
         86400000L * 60 // expire PreShotVersionSeed after 60 days
 
     val USER_DATA_REFRESH_INTERVAL: Long = 86400000L * 7 // 7 days
+    val CUSTOM_PHOTO_USER_DATA_REFRESH_INTERVAL: Long = 86400000L * 30 // 30 days, the server keeps user data 90 days
     val GET_USER_DATA_LOCAL_FILE_LIFESPAN: Long = 86400000L * 7 // 7 days
     val WELL_KNOWN_REFRESH_INTERVAL: Long = 3600000L * 6 // 6 hours
 

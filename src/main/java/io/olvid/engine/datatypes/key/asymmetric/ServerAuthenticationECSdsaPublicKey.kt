@@ -36,7 +36,7 @@ abstract class ServerAuthenticationECSdsaPublicKey(
             compactKey[0] = algorithmImplementation
             try {
                 val yBytes = Encoded.bytesFromBigUInt(
-                    key.get(DictionaryKey(PUBLIC_Y_COORD_KEY_NAME))!!.decodeBigUInt(),
+                    key[DictionaryKey(PUBLIC_Y_COORD_KEY_NAME)]!!.decodeBigUInt(),
                     compactKey.size - 1
                 )
                 System.arraycopy(yBytes, 0, compactKey, 1, yBytes.size)

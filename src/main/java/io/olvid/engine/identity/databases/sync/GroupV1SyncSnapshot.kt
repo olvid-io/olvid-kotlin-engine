@@ -26,6 +26,7 @@ import io.olvid.engine.Logger
 import io.olvid.engine.datatypes.Identity
 import io.olvid.engine.encoder.Encoded
 import io.olvid.engine.engine.types.ObvBytesKey
+import io.olvid.engine.engine.types.sync.ObvSyncAtom.DiscussionIdentifier
 import io.olvid.engine.engine.types.sync.ObvSyncDiff
 import io.olvid.engine.engine.types.sync.ObvSyncSnapshotNode
 import io.olvid.engine.identity.databases.ContactGroup
@@ -50,6 +51,7 @@ class GroupV1SyncSnapshot : ObvSyncSnapshotNode {
     @JsonSerialize(keyUsing = ObvBytesKey.KeySerializer::class)
     @JsonDeserialize(keyUsing = ObvBytesKey.KeyDeserializer::class)
     var pending_members: HashMap<ObvBytesKey?, GroupV1PendingMember?>? = null
+    @JvmField var custom_photo: CustomPhotoSyncSnapshot? = null
     @JvmField var domain: HashSet<String>? = null
 
     @JsonIgnore
@@ -144,6 +146,10 @@ class GroupV1SyncSnapshot : ObvSyncSnapshotNode {
             pendingGroupMember.insert()
         }
 
+        if (domain!!.contains(CUSTOM_PHOTO)) {
+            custom_photo?.restore(identityManagerSession!!, ownedIdentity, DiscussionIdentifier(DiscussionIdentifier.GROUP_V1, groupOwnerAndUid))
+        }
+
         return contactGroup
     }
 
@@ -181,14 +187,15 @@ class GroupV1SyncSnapshot : ObvSyncSnapshotNode {
         const val GROUP_MEMBERS_VERSION: String = "group_members_version"
         const val MEMBERS: String = "members"
         const val PENDING_MEMBERS: String = "pending_members"
+        const val CUSTOM_PHOTO: String = "custom_photo"
         var DEFAULT_JOINED_DOMAIN: HashSet<String> = HashSet(
             listOf(
-                PUBLISHED_DETAILS, TRUSTED_DETAILS, GROUP_MEMBERS_VERSION, MEMBERS, PENDING_MEMBERS
+                PUBLISHED_DETAILS, TRUSTED_DETAILS, GROUP_MEMBERS_VERSION, MEMBERS, PENDING_MEMBERS, CUSTOM_PHOTO
             )
         )
         var DEFAULT_OWNED_DOMAIN: HashSet<String> = HashSet(
             listOf(
-                PUBLISHED_DETAILS, GROUP_MEMBERS_VERSION, MEMBERS, PENDING_MEMBERS
+                PUBLISHED_DETAILS, GROUP_MEMBERS_VERSION, MEMBERS, PENDING_MEMBERS, CUSTOM_PHOTO
             )
         )
 
@@ -239,6 +246,12 @@ class GroupV1SyncSnapshot : ObvSyncSnapshotNode {
                     pgm.getContactIdentity().getBytes()
                 )] = GroupV1PendingMember.of(pgm)
             }
+
+            groupV1SyncSnapshot.custom_photo = CustomPhotoSyncSnapshot.of(
+                identityManagerSession,
+                group.getOwnedIdentity(),
+                DiscussionIdentifier(DiscussionIdentifier.GROUP_V1, group.groupOwnerAndUid)
+            )
 
             return groupV1SyncSnapshot
         }

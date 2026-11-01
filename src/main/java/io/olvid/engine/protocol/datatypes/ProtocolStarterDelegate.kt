@@ -270,6 +270,14 @@ interface ProtocolStarterDelegate {
     )
 
     @Throws(Exception::class)
+    fun startDownloadCustomPhotoProtocolWithinTransaction(
+        session: Session,
+        ownedIdentity: Identity,
+        target: ObvSyncAtom.DiscussionIdentifier,
+        serverPhotoInfo: ServerPhotoInfo
+    )
+
+    @Throws(Exception::class)
     fun initiateGroupV2ReDownloadWithinTransaction(
         session: Session,
         ownedIdentity: Identity?,
