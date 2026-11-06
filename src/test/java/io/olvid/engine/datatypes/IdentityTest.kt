@@ -245,6 +245,53 @@ class IdentityTest {
     }
 
     @Test
+    fun testIdentityDecodingRejectsCoordinatesAboveP() {
+        // A y coordinate above p is rejected by the key constructors with an unchecked
+        // InvalidParameterException: Identity.of must turn it into a DecodingException.
+        val prng = Suite.getDefaultPRNGService(0)
+        prng.reseed(Seed(ByteArray(32)))
+        val validAuthKey = (ServerAuthenticationECSdsaCurve25519KeyPair.generate(prng).publicKey as ServerAuthenticationPublicKey).compactKey
+        val validEncryptionKey = (EncryptionEciesCurve25519KeyPair.generate(prng).publicKey as EncryptionPublicKey).compactKey
+        val server = "server".toByteArray(StandardCharsets.UTF_8) + byteArrayOf(0)
+
+        for (authAlgo in listOf(ServerAuthenticationPublicKey.ALGO_IMPL_SIGN_CHALLENGE_EC_SDSA_CURVE25519, ServerAuthenticationPublicKey.ALGO_IMPL_SIGN_CHALLENGE_EC_SDSA_MDC)) {
+            val authKeyAboveP = ByteArray(ServerAuthenticationPublicKey.getCompactKeyLength(authAlgo)) { 0xff.toByte() }
+            authKeyAboveP[0] = authAlgo
+            try {
+                Identity.of(server + authKeyAboveP + validEncryptionKey)
+                fail("Expected DecodingException")
+            } catch (_: DecodingException) {
+                // expected
+            }
+        }
+
+        for (encryptionAlgo in listOf(EncryptionPublicKey.ALGO_IMPL_KEM_ECIES_CURVE25519_AND_DEM_CTR_AES256_THEN_HMAC_SHA256, EncryptionPublicKey.ALGO_IMPL_KEM_ECIES_MDC_AND_DEM_CTR_AES256_THEN_HMAC_SHA256)) {
+            val encryptionKeyAboveP = ByteArray(EncryptionPublicKey.getCompactKeyLength(encryptionAlgo)) { 0xff.toByte() }
+            encryptionKeyAboveP[0] = encryptionAlgo
+            try {
+                Identity.of(server + validAuthKey + encryptionKeyAboveP)
+                fail("Expected DecodingException")
+            } catch (_: DecodingException) {
+                // expected
+            }
+        }
+
+        // the compact key decoders themselves also reject an empty input with a DecodingException
+        try {
+            ServerAuthenticationPublicKey.of(ByteArray(0))
+            fail("Expected DecodingException")
+        } catch (_: DecodingException) {
+            // expected
+        }
+        try {
+            EncryptionPublicKey.of(ByteArray(0))
+            fail("Expected DecodingException")
+        } catch (_: DecodingException) {
+            // expected
+        }
+    }
+
+    @Test
     fun testPrivateIdentityBasic() {
         val zeroSeed = Seed(ByteArray(32))
         val prng = Suite.getDefaultPRNGService(0)

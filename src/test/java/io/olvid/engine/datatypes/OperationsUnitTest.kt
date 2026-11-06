@@ -19,6 +19,9 @@
 
 package io.olvid.engine.datatypes
 
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
 
 class OperationsUnitTest {
@@ -61,5 +64,75 @@ class OperationsUnitTest {
 //        queue.execute(1)
 //        queue.join()
 //        assertEquals(j, 2 * 5000 * 9999 + 3 * 10000 * 19999)
+    }
+
+    private class FinishingOperation(uid: UID, onFinishCallback: OnFinishCallback?) : Operation(uid, onFinishCallback, null) {
+        override fun doCancel() {}
+        override fun doExecute() {
+            setFinished()
+        }
+    }
+
+    private class CancellingOperation(uid: UID, onCancelCallback: OnCancelCallback?) : Operation(uid, null, onCancelCallback) {
+        override fun doCancel() {}
+        override fun doExecute() {
+            cancel(null)
+            processCancel()
+        }
+    }
+
+    private fun readyToExecute(operation: Operation): Operation {
+        operation.setPending()
+        operation.updateReadiness()
+        assertTrue(operation.isReady)
+        return operation
+    }
+
+    @Test
+    fun testThrowingOnFinishCallbackReleasesUid() {
+        val uid = UID(ByteArray(UID.UID_LENGTH) { 1 })
+        val first = readyToExecute(FinishingOperation(uid) { throw IndexOutOfBoundsException("failing callback") })
+        try {
+            first.execute()
+            fail("expected the callback exception")
+        } catch (_: IndexOutOfBoundsException) {
+            // expected
+        }
+        assertTrue(first.isFinished)
+
+        // the next operation with the same uid must be allowed to run
+        val next = readyToExecute(FinishingOperation(uid, null))
+        assertTrue(next.areConditionsFulfilled())
+        next.execute()
+        assertTrue(next.isFinished)
+    }
+
+    @Test
+    fun testThrowingOnCancelCallbackReleasesUid() {
+        val uid = UID(ByteArray(UID.UID_LENGTH) { 2 })
+        val first = readyToExecute(CancellingOperation(uid) { throw IndexOutOfBoundsException("failing callback") })
+        try {
+            first.execute()
+            fail("expected the callback exception")
+        } catch (_: IndexOutOfBoundsException) {
+            // expected
+        }
+        assertTrue(first.isCancelled)
+
+        val next = readyToExecute(CancellingOperation(uid, null))
+        assertTrue(next.areConditionsFulfilled())
+    }
+
+    @Test
+    fun testRunningOperationUidBlocksTheNextOne() {
+        // sanity check of the uid lock itself: it holds while the operation runs
+        val uid = UID(ByteArray(UID.UID_LENGTH) { 3 })
+        var conditionsDuringExecution = true
+        val first = readyToExecute(FinishingOperation(uid) {
+            conditionsDuringExecution = readyToExecute(FinishingOperation(uid, null)).areConditionsFulfilled()
+        })
+        first.execute()
+        assertFalse(conditionsDuringExecution)
+        assertTrue(readyToExecute(FinishingOperation(uid, null)).areConditionsFulfilled())
     }
 }

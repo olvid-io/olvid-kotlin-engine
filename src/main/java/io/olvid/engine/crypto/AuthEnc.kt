@@ -114,6 +114,9 @@ internal class AuthEncAES256ThenSHA256 : AuthEnc {
         val enc = SymEncCtrAES256(encKey)
 
         val ciphertextBytes = ciphertext!!.getBytes()
+        if (ciphertextBytes.size < mac.outputLength()) {
+            throw DecryptionException()
+        }
         val hash = ciphertextBytes.copyOfRange(ciphertextBytes.size - mac.outputLength(), ciphertextBytes.size)
         val encryptedBytes = ciphertextBytes.copyOfRange(0, ciphertextBytes.size - mac.outputLength())
         if (!mac.verify(macKey, encryptedBytes, hash)) {

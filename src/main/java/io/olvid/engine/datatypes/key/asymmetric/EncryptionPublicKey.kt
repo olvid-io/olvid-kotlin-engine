@@ -61,10 +61,18 @@ constructor(
         @JvmName("ofCompactBytes")
         @Throws(DecodingException::class)
         fun of(compactKeyBytes: ByteArray): EncryptionPublicKey {
-            return when (compactKeyBytes[0]) {
-                ALGO_IMPL_KEM_ECIES_MDC_AND_DEM_CTR_AES256_THEN_HMAC_SHA256 -> EncryptionEciesMDCPublicKey.of(compactKeyBytes)
-                ALGO_IMPL_KEM_ECIES_CURVE25519_AND_DEM_CTR_AES256_THEN_HMAC_SHA256 -> EncryptionEciesCurve25519PublicKey.of(compactKeyBytes)
-                else -> throw DecodingException()
+            if (compactKeyBytes.isEmpty()) {
+                throw DecodingException()
+            }
+            try {
+                return when (compactKeyBytes[0]) {
+                    ALGO_IMPL_KEM_ECIES_MDC_AND_DEM_CTR_AES256_THEN_HMAC_SHA256 -> EncryptionEciesMDCPublicKey.of(compactKeyBytes)
+                    ALGO_IMPL_KEM_ECIES_CURVE25519_AND_DEM_CTR_AES256_THEN_HMAC_SHA256 -> EncryptionEciesCurve25519PublicKey.of(compactKeyBytes)
+                    else -> throw DecodingException()
+                }
+            } catch (_: RuntimeException) {
+                // key constructors throw unchecked exceptions (InvalidParameterException...) on malformed coordinates, e.g. y >= p
+                throw DecodingException()
             }
         }
     }

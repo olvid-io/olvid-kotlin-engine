@@ -114,7 +114,13 @@ class Session private constructor(
             globalWriteLock.unlock()
         }
         for (sessionCommitListener in sessionCommitListeners.toTypedArray<SessionCommitListener>()) {
-            sessionCommitListener.wasCommitted()
+            // the transaction is already committed: a failing hook must not prevent the next ones from running
+            try {
+                sessionCommitListener.wasCommitted()
+            } catch (e: Exception) {
+                Logger.e("A session commit hook threw an exception: " + sessionCommitListener.javaClass)
+                Logger.x(e)
+            }
         }
         sessionCommitListeners.clear()
     }

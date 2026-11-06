@@ -1,3 +1,9 @@
+# Version 1.3.3
+2026-11-07
+
+- Added some additional input checks to avoid throwing unexpectedly.
+- Upgrade to the latest version of Jackson as the next Android release will set `minSdk = 26`. 
+
 # Version 1.3.2
 2026-11-02
 

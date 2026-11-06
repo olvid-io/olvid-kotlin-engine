@@ -19,6 +19,7 @@
 package io.olvid.engine.crypto
 
 import io.olvid.engine.Logger
+import io.olvid.engine.crypto.exceptions.DecryptionException
 import io.olvid.engine.datatypes.EncryptedBytes
 import io.olvid.engine.datatypes.key.symmetric.SymEncCTRAES256Key
 import io.olvid.engine.datatypes.key.symmetric.SymmetricKey
@@ -37,6 +38,7 @@ internal interface SymEnc {
 
     @Throws(InvalidKeyException::class)
     fun encrypt(iv: ByteArray?, plaintext: ByteArray?, ciphertext: ByteArray?)
+    @Throws(DecryptionException::class)
     fun decrypt(ciphertext: EncryptedBytes?): ByteArray?
 
     companion object {
@@ -113,8 +115,12 @@ internal class SymEncCtrAES256(key: SymEncCTRAES256Key) : SymEnc {
         }
     }
 
+    @Throws(DecryptionException::class)
     override fun decrypt(ciphertext: EncryptedBytes?): ByteArray? {
         val ciphertextBytes = ciphertext!!.getBytes()
+        if (ciphertextBytes.size < IV_BYTE_LENGTH) {
+            throw DecryptionException()
+        }
         val iv = ciphertextBytes.copyOfRange(0, IV_BYTE_LENGTH)
         val ciphertextEnd = ciphertextBytes.copyOfRange(IV_BYTE_LENGTH, ciphertextBytes.size)
         var plaintext: ByteArray? = null

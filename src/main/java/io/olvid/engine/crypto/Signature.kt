@@ -76,6 +76,9 @@ abstract class Signature {
             signerIdentity: Identity,
             signature: ByteArray
         ): Boolean {
+            if (signature.size < Constants.SIGNATURE_PADDING_LENGTH) {
+                return false
+            }
             try {
                 val signaturePublicKey =
                     signerIdentity.serverAuthenticationPublicKey.signaturePublicKey
@@ -111,6 +114,9 @@ abstract class Signature {
             signerIdentity: Identity,
             signature: ByteArray
         ): Boolean {
+            if (signature.size < Constants.SIGNATURE_PADDING_LENGTH) {
+                return false
+            }
             try {
                 val signaturePublicKey =
                     signerIdentity.serverAuthenticationPublicKey.signaturePublicKey
@@ -148,6 +154,9 @@ abstract class Signature {
             signerIdentity: Identity,
             signature: ByteArray
         ): Boolean {
+            if (signature.size < Constants.SIGNATURE_PADDING_LENGTH) {
+                return false
+            }
             try {
                 val signaturePublicKey =
                     signerIdentity.serverAuthenticationPublicKey.signaturePublicKey
@@ -187,6 +196,9 @@ abstract class Signature {
             signerIdentity: Identity,
             signature: ByteArray
         ): Boolean {
+            if (signature.size < Constants.SIGNATURE_PADDING_LENGTH) {
+                return false
+            }
             try {
                 val signaturePublicKey =
                     signerIdentity.serverAuthenticationPublicKey.signaturePublicKey

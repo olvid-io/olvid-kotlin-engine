@@ -101,8 +101,12 @@ internal abstract class PublicKeyEncryptionEcies protected constructor(private v
         ciphertext: EncryptedBytes?
     ): ByteArray? {
         val ciphertextBytes = ciphertext!!.getBytes()
+        if (ciphertextBytes.size < KemEcies256Kem512.CIPHERTEXT_LENGTH) {
+            throw DecryptionException("Ciphertext shorter than the KEM ciphertext")
+        }
         val kemCiphertext = ciphertext.getBytes().copyOfRange(0, KemEcies256Kem512.CIPHERTEXT_LENGTH)
         val key = kem.decrypt(privateKey, kemCiphertext)
+            ?: throw DecryptionException("Invalid KEM ciphertext")
 
         val demCiphertext = EncryptedBytes(
             ciphertext.getBytes().copyOfRange(KemEcies256Kem512.CIPHERTEXT_LENGTH, ciphertextBytes.size)

@@ -26,7 +26,22 @@ import kotlin.math.min
 
 interface PRNG {
     fun bytes(l: Int): ByteArray
-    fun bigInt(n: BigInteger): BigInteger
+
+    // uniform in [0, n), by rejection sampling on bytes()
+    fun bigInt(n: BigInteger): BigInteger {
+        val n_minus_one = n.subtract(BigInteger.ONE)
+        val l = n_minus_one.bitLength()
+        val ell = 1 + (l - 1) / 8
+        val mask = (1 shl (l - 8 * (ell - 1))) - 1
+        while (true) {
+            val rand = bytes(ell)
+            rand[0] = (rand[0].toInt() and mask).toByte()
+            val r = BigInteger(1, rand)
+            if (r < n) {
+                return r
+            }
+        }
+    }
 
     companion object {
         const val PRNG_HMAC_SHA256: String = "prng_hmac_sha-256"
@@ -84,20 +99,5 @@ internal class PRNGHmacSHA256(seed: Seed) : PRNG {
         }
         update(ByteArray(0))
         return output
-    }
-
-    override fun bigInt(n: BigInteger): BigInteger {
-        val n_minus_one = n.subtract(BigInteger.ONE)
-        val l = n_minus_one.bitLength()
-        val ell = 1 + (l - 1) / 8
-        val mask = (1 shl (l - 8 * (ell - 1))) - 1
-        while (true) {
-            val rand = bytes(ell)
-            rand[0] = (rand[0].toInt() and mask).toByte()
-            val r = BigInteger(1, rand)
-            if (r < n) {
-                return r
-            }
-        }
     }
 }

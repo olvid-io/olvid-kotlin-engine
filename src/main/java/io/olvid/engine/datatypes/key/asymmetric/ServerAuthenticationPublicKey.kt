@@ -73,10 +73,18 @@ abstract class ServerAuthenticationPublicKey(
         @JvmName("ofCompactBytes")
         @Throws(DecodingException::class)
         fun of(compactKeyBytes: ByteArray): ServerAuthenticationPublicKey {
-            return when (compactKeyBytes[0]) {
-                ALGO_IMPL_SIGN_CHALLENGE_EC_SDSA_MDC -> ServerAuthenticationECSdsaMDCPublicKey.of(compactKeyBytes)
-                ALGO_IMPL_SIGN_CHALLENGE_EC_SDSA_CURVE25519 -> ServerAuthenticationECSdsaCurve25519PublicKey.of(compactKeyBytes)
-                else -> throw DecodingException()
+            if (compactKeyBytes.isEmpty()) {
+                throw DecodingException()
+            }
+            try {
+                return when (compactKeyBytes[0]) {
+                    ALGO_IMPL_SIGN_CHALLENGE_EC_SDSA_MDC -> ServerAuthenticationECSdsaMDCPublicKey.of(compactKeyBytes)
+                    ALGO_IMPL_SIGN_CHALLENGE_EC_SDSA_CURVE25519 -> ServerAuthenticationECSdsaCurve25519PublicKey.of(compactKeyBytes)
+                    else -> throw DecodingException()
+                }
+            } catch (_: RuntimeException) {
+                // key constructors throw unchecked exceptions (InvalidParameterException...) on malformed coordinates, e.g. y >= p
+                throw DecodingException()
             }
         }
     }

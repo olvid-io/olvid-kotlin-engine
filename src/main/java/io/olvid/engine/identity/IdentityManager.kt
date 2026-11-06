@@ -6274,7 +6274,7 @@ class IdentityManager(
             val privateIdentity = ownedIdentity.getPrivateIdentity()
             val pubEnc = Suite.getPublicKeyEncryption(privateIdentity!!.getEncryptionPublicKey())!!
             val unwrappedBytes = pubEnc.decrypt(privateIdentity.encryptionPrivateKey, wrappedKey)!!
-            return Encoded(unwrappedBytes).decodeSymmetricKey() as AuthEncKey?
+            return decodeUnwrappedMessageKey(unwrappedBytes)
         } catch (_: DecryptionException) {
             return null
         } catch (_: InvalidKeyException) {
@@ -6888,6 +6888,16 @@ class IdentityManager(
     } // endregion
 
     companion object {
+        // Decodes a message key unwrapped with an identity's private key. Anyone can encrypt for an identity, so the
+        // plaintext is attacker controlled: return null for anything but a valid AuthEncKey, never throw.
+        internal fun decodeUnwrappedMessageKey(unwrappedBytes: ByteArray): AuthEncKey? {
+            return try {
+                Encoded(unwrappedBytes).decodeSymmetricKey() as? AuthEncKey
+            } catch (_: DecodingException) {
+                null
+            }
+        }
+
         @JvmStatic
         @Throws(SQLException::class)
         fun upgradeTables(session: Session, oldVersion: Int, newVersion: Int) {

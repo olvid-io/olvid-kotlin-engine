@@ -109,6 +109,7 @@ class DeviceBackupFetchTask(
         /**/// */
         // 3. download the backup file
         val serverMethod = DownloadBackupFromServer(deviceBackupDownloadUrl)
+        serverMethod.setSslSocketFactory(sslSocketFactory, userAgentOverride)
         if (!serverMethod.execute()) {
             obvDeviceBackupForRestore = ObvDeviceBackupForRestore(
                 ObvDeviceBackupForRestore.Status.NETWORK_ERROR,

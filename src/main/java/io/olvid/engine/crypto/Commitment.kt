@@ -47,8 +47,11 @@ internal class CommitmentWithSHA256 : Commitment {
     }
 
     override fun open(tag: ByteArray?, commitment: ByteArray?, decommitment: ByteArray?): ByteArray? {
+        if (decommitment!!.size < COMMITMENT_RANDOM_LENGTH) {
+            return null
+        }
         val h = HashSHA256()
-        val input = ByteArray(tag!!.size + decommitment!!.size)
+        val input = ByteArray(tag!!.size + decommitment.size)
         System.arraycopy(tag, 0, input, 0, tag.size)
         System.arraycopy(decommitment, 0, input, tag.size, decommitment.size)
 

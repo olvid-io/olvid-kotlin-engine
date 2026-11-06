@@ -99,16 +99,13 @@ abstract class Operation @JvmOverloads constructor(
         if (isStateChangeAuthorized(State.FINISHED)) {
             state = State.FINISHED
             lockOnState.unlock()
-            if (onFinishCallback != null) {
-                onFinishCallback.onFinishCallback(this)
-            }
-            if (uid != null) {
-                globalLock.lock()
-                val uids: HashSet<UID?>? = runningOperationUIDsByClass.get(this.javaClass.getName())
-                if (uids != null) {
-                    uids.remove(uid)
+            try {
+                if (onFinishCallback != null) {
+                    onFinishCallback.onFinishCallback(this)
                 }
-                globalLock.unlock()
+            } finally {
+                // always release the uid, otherwise no later operation with the same uid can ever run
+                releaseUid()
             }
         } else {
             lockOnState.unlock()
@@ -133,20 +130,27 @@ abstract class Operation @JvmOverloads constructor(
         if ((state != State.CANCELLED) && (state != State.FINISHED) && cancelWasRequested) {
             state = State.CANCELLED
             lockOnState.unlock()
-            if (onCancelCallback != null) {
-                onCancelCallback.onCancelCallback(this)
-            }
-            if (uid != null) {
-                globalLock.lock()
-                val uids: HashSet<UID?>? = runningOperationUIDsByClass.get(this.javaClass.getName())
-                if (uids != null) {
-                    uids.remove(uid)
+            try {
+                if (onCancelCallback != null) {
+                    onCancelCallback.onCancelCallback(this)
                 }
-                globalLock.unlock()
+            } finally {
+                releaseUid()
             }
             Logger.d("Processed cancel of Operation of " + this.javaClass.toString())
         } else {
             lockOnState.unlock()
+        }
+    }
+
+    private fun releaseUid() {
+        if (uid != null) {
+            globalLock.lock()
+            try {
+                runningOperationUIDsByClass.get(this.javaClass.getName())?.remove(uid)
+            } finally {
+                globalLock.unlock()
+            }
         }
     }
 

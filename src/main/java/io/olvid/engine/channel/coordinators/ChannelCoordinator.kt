@@ -42,10 +42,12 @@ class ChannelCoordinator(private val channelManagerSessionFactory: ChannelManage
                 channelManagerSession.session.startTransaction()
                 // try to decrypt with an ObliviousChannel
                 var authEncKeyAndChannelInfo: AuthEncKeyAndChannelInfo? =
-                    ObliviousChannel.unwrapMessageKey(
-                        channelManagerSession,
-                        networkReceivedMessage.getHeader()
-                    )
+                    unwrapOrNull(channelManagerSession) {
+                        ObliviousChannel.unwrapMessageKey(
+                            channelManagerSession,
+                            networkReceivedMessage.getHeader()
+                        )
+                    }
                 if (authEncKeyAndChannelInfo != null) {
                     Logger.d("The message can be decrypted through an ObliviousChannel.")
                     // the message was encrypted using an ObliviousChannel -> we do the processing ourselves
@@ -59,10 +61,12 @@ class ChannelCoordinator(private val channelManagerSessionFactory: ChannelManage
                 }
 
                 // try to decrypt with a PreKey
-                authEncKeyAndChannelInfo = PreKeyChannel.unwrapMessageKey(
-                    channelManagerSession,
-                    networkReceivedMessage.getHeader()
-                )
+                authEncKeyAndChannelInfo = unwrapOrNull(channelManagerSession) {
+                    PreKeyChannel.unwrapMessageKey(
+                        channelManagerSession,
+                        networkReceivedMessage.getHeader()
+                    )
+                }
                 if (authEncKeyAndChannelInfo != null) {
                     Logger.d("The message can be decrypted with a PreKey. ")
                     decryptAndProcess(
@@ -75,10 +79,12 @@ class ChannelCoordinator(private val channelManagerSessionFactory: ChannelManage
                 }
 
                 // try to decrypt with an AsymmetricChannel
-                authEncKeyAndChannelInfo = AsymmetricChannel.unwrapMessageKey(
-                    channelManagerSession,
-                    networkReceivedMessage.getHeader()
-                )
+                authEncKeyAndChannelInfo = unwrapOrNull(channelManagerSession) {
+                    AsymmetricChannel.unwrapMessageKey(
+                        channelManagerSession,
+                        networkReceivedMessage.getHeader()
+                    )
+                }
                 if (authEncKeyAndChannelInfo != null) {
                     Logger.d("The message can be decrypted through an AsymmetricChannel.")
                     decryptAndProcess(
@@ -108,6 +114,28 @@ class ChannelCoordinator(private val channelManagerSessionFactory: ChannelManage
         }
     }
 
+
+    // The header of a received message is attacker controlled: an unchecked exception while unwrapping it must not
+    // escape, otherwise the message is never deleted and is retried forever. Such an exception means
+    // this channel cannot decrypt the message: roll back whatever the unwrapping wrote and let the next channel try.
+    // SQLExceptions still propagate, so the message is kept and retried later.
+    @Throws(SQLException::class)
+    private inline fun unwrapOrNull(
+        channelManagerSession: ChannelManagerSession,
+        unwrap: () -> AuthEncKeyAndChannelInfo?
+    ): AuthEncKeyAndChannelInfo? {
+        try {
+            return unwrap()
+        } catch (e: SQLException) {
+            throw e
+        } catch (e: Exception) {
+            Logger.w("Unexpected exception while unwrapping a received message key")
+            Logger.x(e)
+            channelManagerSession.session.rollback()
+            channelManagerSession.session.startTransaction()
+            return null
+        }
+    }
 
     private fun decryptAndProcess(
         channelManagerSession: ChannelManagerSession,

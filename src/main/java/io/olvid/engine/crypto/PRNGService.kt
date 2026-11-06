@@ -19,7 +19,6 @@
 package io.olvid.engine.crypto
 
 import io.olvid.engine.datatypes.Seed
-import java.math.BigInteger
 import java.security.SecureRandom
 
 interface PRNGService : PRNG {
@@ -56,11 +55,6 @@ internal class PRNGServiceHmacSHA256 private constructor() : PRNGService {
             reseedCounter++
         }
         return output
-    }
-
-    @Synchronized
-    override fun bigInt(n: BigInteger): BigInteger {
-        return prng.bigInt(n)
     }
 
     companion object {

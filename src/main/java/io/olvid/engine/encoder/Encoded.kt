@@ -34,6 +34,9 @@ import java.util.UUID
 class Encoded(val bytes: ByteArray) {
     val isEncodedValue: Boolean
         get() {
+            if (bytes.size < 5) {
+                return false
+            }
             val len: Int =
                 uint32FromBytes(this.bytes, 1)
             if (len + 5 != bytes.size) {
@@ -47,9 +50,15 @@ class Encoded(val bytes: ByteArray) {
 
     // endregion
     // region Decoders
+
+    // true if bytes start with the given type byte and are long enough to hold the 4-byte length
+    private fun hasHeader(type: Byte): Boolean {
+        return bytes.size >= 5 && bytes[0] == type
+    }
+
     @Throws(DecodingException::class)
     fun decodeBytes(): ByteArray {
-        if (this.bytes[0] != BYTE_IDS_BYTE_ARRAY) {
+        if (!hasHeader(BYTE_IDS_BYTE_ARRAY)) {
             throw DecodingException()
         }
         if (!this.isEncodedValue) {
@@ -65,7 +74,11 @@ class Encoded(val bytes: ByteArray) {
 
     @Throws(DecodingException::class)
     fun decodeUid(): UID {
-        return UID(decodeBytes())
+        try {
+            return UID(decodeBytes())
+        } catch (_: IllegalArgumentException) {
+            throw DecodingException()
+        }
     }
 
     @Throws(DecodingException::class)
@@ -75,12 +88,20 @@ class Encoded(val bytes: ByteArray) {
 
     @Throws(DecodingException::class)
     fun decodeSeed(): Seed {
-        return Seed(decodeBytes())
+        try {
+            return Seed(decodeBytes())
+        } catch (_: IllegalArgumentException) {
+            throw DecodingException()
+        }
     }
 
     @Throws(DecodingException::class)
     fun decodeUuid(): UUID {
-        return UUID.fromString(decodeString())
+        try {
+            return UUID.fromString(decodeString())
+        } catch (_: IllegalArgumentException) {
+            throw DecodingException()
+        }
     }
 
     @Throws(DecodingException::class)
@@ -90,7 +111,7 @@ class Encoded(val bytes: ByteArray) {
 
     @Throws(DecodingException::class)
     fun decodeLong(): Long {
-        if (this.bytes[0] != BYTE_IDS_INT) {
+        if (!hasHeader(BYTE_IDS_INT)) {
             throw DecodingException()
         }
         if ((bytes.size != 5 + INT_ENCODING_LENGTH) || !this.isEncodedValue) {
@@ -106,7 +127,7 @@ class Encoded(val bytes: ByteArray) {
 
     @Throws(DecodingException::class)
     fun decodeBoolean(): Boolean {
-        if (this.bytes[0] != BYTE_IDS_BOOLEAN) {
+        if (!hasHeader(BYTE_IDS_BOOLEAN)) {
             throw DecodingException()
         }
         if ((bytes.size != 5 + 1) || !this.isEncodedValue) {
@@ -121,7 +142,7 @@ class Encoded(val bytes: ByteArray) {
 
     @Throws(DecodingException::class)
     fun decodePublicKey(): PublicKey? {
-        if (this.bytes[0] != BYTE_IDS_PUB_KEY || !this.isEncodedValue) {
+        if (!hasHeader(BYTE_IDS_PUB_KEY) || !this.isEncodedValue) {
             throw DecodingException()
         }
         val list = unpack()
@@ -133,12 +154,17 @@ class Encoded(val bytes: ByteArray) {
             throw DecodingException()
         }
         val key = list[1].decodeDictionary()
-        return PublicKey.of(algoBytes[0], algoBytes[1], key)
+        try {
+            return PublicKey.of(algoBytes[0], algoBytes[1], key)
+        } catch (_: RuntimeException) {
+            // key constructors throw unchecked exceptions (NullPointerException, InvalidParameterException...) on missing or malformed entries
+            throw DecodingException()
+        }
     }
 
     @Throws(DecodingException::class)
     fun decodePrivateKey(): PrivateKey? {
-        if (this.bytes[0] != BYTE_IDS_PRV_KEY || !this.isEncodedValue) {
+        if (!hasHeader(BYTE_IDS_PRV_KEY) || !this.isEncodedValue) {
             throw DecodingException()
         }
         val list = unpack()
@@ -150,12 +176,17 @@ class Encoded(val bytes: ByteArray) {
             throw DecodingException()
         }
         val key = list[1].decodeDictionary()
-        return PrivateKey.of(algoBytes[0], algoBytes[1], key)
+        try {
+            return PrivateKey.of(algoBytes[0], algoBytes[1], key)
+        } catch (_: RuntimeException) {
+            // key constructors throw unchecked exceptions (NullPointerException, InvalidParameterException...) on missing or malformed entries
+            throw DecodingException()
+        }
     }
 
     @Throws(DecodingException::class)
     fun decodeSymmetricKey(): SymmetricKey? {
-        if (this.bytes[0] != BYTE_IDS_SYM_KEY || !this.isEncodedValue) {
+        if (!hasHeader(BYTE_IDS_SYM_KEY) || !this.isEncodedValue) {
             throw DecodingException()
         }
         val list = unpack()
@@ -167,13 +198,18 @@ class Encoded(val bytes: ByteArray) {
             throw DecodingException()
         }
         val key = list[1].decodeDictionary()
-        return SymmetricKey.of(algoBytes[0], algoBytes[1], key)
+        try {
+            return SymmetricKey.of(algoBytes[0], algoBytes[1], key)
+        } catch (_: RuntimeException) {
+            // key constructors throw unchecked exceptions (NullPointerException, InvalidParameterException...) on missing or malformed entries
+            throw DecodingException()
+        }
     }
 
 
     @Throws(DecodingException::class)
     fun decodeBigUInt(): BigInteger {
-        if (this.bytes[0] != BYTE_IDS_BIG_UINT || !this.isEncodedValue) {
+        if (!hasHeader(BYTE_IDS_BIG_UINT) || !this.isEncodedValue) {
             throw DecodingException()
         }
         return BigInteger(1, this.bytes.copyOfRange(5, bytes.size))
@@ -182,7 +218,7 @@ class Encoded(val bytes: ByteArray) {
     // used to decode a list with some additional bytes at the end
     @Throws(DecodingException::class)
     fun decodeListWithPadding(): Array<Encoded> {
-        if (this.bytes[0] != BYTE_IDS_LIST) {
+        if (!hasHeader(BYTE_IDS_LIST)) {
             throw DecodingException()
         }
         if (bytes.size < 5) {
@@ -214,7 +250,7 @@ class Encoded(val bytes: ByteArray) {
 
     @Throws(DecodingException::class)
     fun decodeList(): Array<Encoded> {
-        if (this.bytes[0] != BYTE_IDS_LIST || !this.isEncodedValue) {
+        if (!hasHeader(BYTE_IDS_LIST) || !this.isEncodedValue) {
             throw DecodingException()
         }
         return unpack()
@@ -243,7 +279,7 @@ class Encoded(val bytes: ByteArray) {
 
     @Throws(DecodingException::class)
     fun decodeDictionary(): HashMap<DictionaryKey, Encoded> {
-        if (this.bytes[0] != BYTE_IDS_DICTIONARY || !this.isEncodedValue) {
+        if (!hasHeader(BYTE_IDS_DICTIONARY) || !this.isEncodedValue) {
             throw DecodingException()
         }
         val dict = HashMap<DictionaryKey, Encoded>()
@@ -283,7 +319,7 @@ class Encoded(val bytes: ByteArray) {
     // used to decode a dictionary with some additional bytes at the end
     @Throws(DecodingException::class)
     fun decodeDictionaryWithPadding(): HashMap<DictionaryKey, Encoded> {
-        if (this.bytes[0] != BYTE_IDS_DICTIONARY) {
+        if (!hasHeader(BYTE_IDS_DICTIONARY)) {
             throw DecodingException()
         }
         if (bytes.size < 5) {

@@ -246,6 +246,21 @@ class SymmetricCryptoUnitTest {
     }
 
     @Test
+    fun test_PRNGServiceHmacSHA256_bigIntCountsTowardsReseed() {
+        val prng = PRNGServiceHmacSHA256.instance
+        prng.reseed(Seed(ByteArray(32)))
+        // a power of 2 bound is never rejected: each bigInt() is exactly one call to bytes()
+        val bound = BigInteger.ONE.shiftLeft(256)
+        repeat(PRNGServiceHmacSHA256.RESEED_FREQUENCY) {
+            prng.bigInt(bound)
+            assertEquals(it + 1, prng.reseedCounter)
+        }
+        // the next call reseeds from SecureRandom and restarts the count
+        prng.bigInt(bound)
+        assertEquals(1, prng.reseedCounter)
+    }
+
+    @Test
     @Throws(Exception::class)
     fun test_SymEncCtrAES256() {
         val mapper = ObjectMapper()

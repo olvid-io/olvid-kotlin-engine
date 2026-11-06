@@ -346,6 +346,27 @@ class SessionTest {
     }
 
     @Test
+    fun testCommitFiresListenersAfterAThrowingOne() {
+        val session = openSession()
+        val callLog = mutableListOf<Int>()
+        session.addSessionCommitListener { callLog.add(1) }
+        session.addSessionCommitListener { throw IndexOutOfBoundsException("failing hook") }
+        session.addSessionCommitListener { callLog.add(3) }
+
+        session.startTransaction()
+        session.commit() // must not throw
+
+        assertEquals(listOf(1, 3), callLog)
+        assertFalse(session.isInTransaction)
+        assertFalse(Session.globalWriteLock.isLocked)
+
+        // the queue was emptied: a later commit fires nobody
+        session.startTransaction()
+        session.commit()
+        assertEquals(listOf(1, 3), callLog)
+    }
+
+    @Test
     fun testCommitFiresListenerEvenWithoutOpenTransaction() {
         // If the session is already in autoCommit mode (no startTransaction called),
         // commit() skips the SQL commit but still fires the listeners.

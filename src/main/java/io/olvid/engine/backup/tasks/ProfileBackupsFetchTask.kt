@@ -146,6 +146,7 @@ class ProfileBackupsFetchTask(
         for (profileToDownload in profilesToDownload) { /**///// */
             // 3.1. download
             val serverMethod = DownloadBackupFromServer(profileToDownload.downloadUrl)
+            serverMethod.setSslSocketFactory(sslSocketFactory, userAgentOverride)
             if (!serverMethod.execute()) {
                 truncated = true
                 continue

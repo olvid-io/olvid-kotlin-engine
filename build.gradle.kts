@@ -28,7 +28,7 @@ plugins {
 }
 
 group = "io.olvid.messenger"
-version = "1.3.2"
+version = "1.3.3"
 
 repositories {
     mavenCentral()
@@ -53,8 +53,7 @@ kotlin {
 }
 
 dependencies {
-    // do not update further: jackson >2.13 does not work on older Android APIs (the Android app is a consumer)
-    implementation("com.fasterxml.jackson.core:jackson-databind:2.13.4")
+    implementation("com.fasterxml.jackson.core:jackson-databind:2.22.4")
 
     implementation("org.slf4j:slf4j-api:2.0.20")
     implementation("org.slf4j:slf4j-simple:2.0.20")
