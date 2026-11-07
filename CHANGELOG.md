@@ -1,3 +1,8 @@
+# Version 1.3.4
+2026-11-07
+
+- Fix a `GroupV2Protocol` bug introduced by 1.3.3. 
+
 # Version 1.3.3
 2026-11-07
 

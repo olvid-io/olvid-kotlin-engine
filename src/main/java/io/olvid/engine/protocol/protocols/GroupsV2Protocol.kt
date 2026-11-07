@@ -467,7 +467,7 @@ class GroupsV2Protocol(
             this.preShotVersionSeed = if (list.size == 5) {
                 try {
                     list[4].decodeSeed()
-                } catch (_: IllegalArgumentException) {
+                } catch (_: Exception) {
                     null
                 }
             } else {
@@ -539,7 +539,7 @@ class GroupsV2Protocol(
             this.preShotVersionSeed = if (list.size == 8) {
                 try {
                     list[7].decodeSeed()
-                } catch (_: IllegalArgumentException) {
+                } catch (_: Exception) {
                     null
                 }
             } else {
