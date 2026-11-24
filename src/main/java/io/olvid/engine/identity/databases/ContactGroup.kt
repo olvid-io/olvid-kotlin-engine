@@ -733,8 +733,9 @@ class ContactGroup : ObvDatabase {
                 groupOwnerAndUid
             userInfo[IdentityNotifications.NOTIFICATION_GROUP_PUBLISHED_DETAILS_UPDATED_OWNED_IDENTITY_KEY] =
                 ownedIdentity
-            userInfo[IdentityNotifications.NOTIFICATION_GROUP_PUBLISHED_DETAILS_UPDATED_GROUP_DETAILS_KEY] =
-                hookDetails!!
+            hookDetails?.let {
+            userInfo[IdentityNotifications.NOTIFICATION_GROUP_PUBLISHED_DETAILS_UPDATED_GROUP_DETAILS_KEY] = it
+            }
             identityManagerSession.notificationPostingDelegate?.postNotification(
                 IdentityNotifications.NOTIFICATION_GROUP_PUBLISHED_DETAILS_UPDATED,
                 userInfo
@@ -757,8 +758,9 @@ class ContactGroup : ObvDatabase {
                 groupOwnerAndUid
             userInfo[IdentityNotifications.NOTIFICATION_GROUP_PUBLISHED_DETAILS_TRUSTED_OWNED_IDENTITY_KEY] =
                 ownedIdentity
-            userInfo[IdentityNotifications.NOTIFICATION_GROUP_PUBLISHED_DETAILS_TRUSTED_GROUP_DETAILS_KEY] =
-                hookDetails!!
+            hookDetails?.let {
+                userInfo[IdentityNotifications.NOTIFICATION_GROUP_PUBLISHED_DETAILS_TRUSTED_GROUP_DETAILS_KEY] = it
+            }
             identityManagerSession.notificationPostingDelegate?.postNotification(
                 IdentityNotifications.NOTIFICATION_GROUP_PUBLISHED_DETAILS_TRUSTED,
                 userInfo

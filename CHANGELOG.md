@@ -1,3 +1,8 @@
+# Version 1.3.5
+2026-11-24
+
+- Fix an issue with ephemeral settings handling in Keycloak-managed groups.
+
 # Version 1.3.4
 2026-11-07
 

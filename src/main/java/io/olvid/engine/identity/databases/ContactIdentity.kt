@@ -782,14 +782,10 @@ class ContactIdentity : ObvDatabase {
         }
         if ((commitHookBits and HOOK_BIT_DELETED) != 0L) {
             val userInfo = HashMap<String, Any>()
-            userInfo.put(
-                IdentityNotifications.NOTIFICATION_CONTACT_IDENTITY_DELETED_CONTACT_IDENTITY_KEY,
+            userInfo[IdentityNotifications.NOTIFICATION_CONTACT_IDENTITY_DELETED_CONTACT_IDENTITY_KEY] =
                 contactIdentity
-            )
-            userInfo.put(
-                IdentityNotifications.NOTIFICATION_CONTACT_IDENTITY_DELETED_OWNED_IDENTITY_KEY,
+            userInfo[IdentityNotifications.NOTIFICATION_CONTACT_IDENTITY_DELETED_OWNED_IDENTITY_KEY] =
                 ownedIdentity
-            )
             identityManagerSession.notificationPostingDelegate?.postNotification(
                 IdentityNotifications.NOTIFICATION_CONTACT_IDENTITY_DELETED,
                 userInfo
@@ -797,14 +793,10 @@ class ContactIdentity : ObvDatabase {
         }
         if ((commitHookBits and HOOK_BIT_NEW_PUBLISHED_DETAILS) != 0L && (commitHookBits and HOOK_BIT_PUBLISHED_DETAILS_TRUSTED) == 0L) {
             val userInfo = HashMap<String, Any>()
-            userInfo.put(
-                IdentityNotifications.NOTIFICATION_NEW_CONTACT_PUBLISHED_DETAILS_CONTACT_IDENTITY_KEY,
+            userInfo[IdentityNotifications.NOTIFICATION_NEW_CONTACT_PUBLISHED_DETAILS_CONTACT_IDENTITY_KEY] =
                 contactIdentity
-            )
-            userInfo.put(
-                IdentityNotifications.NOTIFICATION_NEW_CONTACT_PUBLISHED_DETAILS_OWNED_IDENTITY_KEY,
+            userInfo[IdentityNotifications.NOTIFICATION_NEW_CONTACT_PUBLISHED_DETAILS_OWNED_IDENTITY_KEY] =
                 ownedIdentity
-            )
             identityManagerSession.notificationPostingDelegate?.postNotification(
                 IdentityNotifications.NOTIFICATION_NEW_CONTACT_PUBLISHED_DETAILS,
                 userInfo
@@ -812,18 +804,13 @@ class ContactIdentity : ObvDatabase {
         }
         if ((commitHookBits and HOOK_BIT_PUBLISHED_DETAILS_TRUSTED) != 0L) {
             val userInfo = HashMap<String, Any>()
-            userInfo.put(
-                IdentityNotifications.NOTIFICATION_CONTACT_PUBLISHED_DETAILS_TRUSTED_CONTACT_IDENTITY_KEY,
+            userInfo[IdentityNotifications.NOTIFICATION_CONTACT_PUBLISHED_DETAILS_TRUSTED_CONTACT_IDENTITY_KEY] =
                 contactIdentity
-            )
-            userInfo.put(
-                IdentityNotifications.NOTIFICATION_CONTACT_PUBLISHED_DETAILS_TRUSTED_OWNED_IDENTITY_KEY,
+            userInfo[IdentityNotifications.NOTIFICATION_CONTACT_PUBLISHED_DETAILS_TRUSTED_OWNED_IDENTITY_KEY] =
                 ownedIdentity
-            )
-            userInfo.put(
-                IdentityNotifications.NOTIFICATION_CONTACT_PUBLISHED_DETAILS_TRUSTED_IDENTITY_DETAILS_KEY,
-                hookTrustedDetails!!
-            )
+            hookTrustedDetails?.let {
+                userInfo[IdentityNotifications.NOTIFICATION_CONTACT_PUBLISHED_DETAILS_TRUSTED_IDENTITY_DETAILS_KEY] = it
+            }
             identityManagerSession.notificationPostingDelegate?.postNotification(
                 IdentityNotifications.NOTIFICATION_CONTACT_PUBLISHED_DETAILS_TRUSTED,
                 userInfo
@@ -831,22 +818,14 @@ class ContactIdentity : ObvDatabase {
         }
         if ((commitHookBits and HOOK_BIT_PHOTO_SET) != 0L) {
             val userInfo = HashMap<String, Any>()
-            userInfo.put(
-                IdentityNotifications.NOTIFICATION_CONTACT_PHOTO_SET_CONTACT_IDENTITY_KEY,
+            userInfo[IdentityNotifications.NOTIFICATION_CONTACT_PHOTO_SET_CONTACT_IDENTITY_KEY] =
                 contactIdentity
-            )
-            userInfo.put(
-                IdentityNotifications.NOTIFICATION_CONTACT_PHOTO_SET_OWNED_IDENTITY_KEY,
+            userInfo[IdentityNotifications.NOTIFICATION_CONTACT_PHOTO_SET_OWNED_IDENTITY_KEY] =
                 ownedIdentity
-            )
-            userInfo.put(
-                IdentityNotifications.NOTIFICATION_CONTACT_PHOTO_SET_VERSION_KEY,
+            userInfo[IdentityNotifications.NOTIFICATION_CONTACT_PHOTO_SET_VERSION_KEY] =
                 hookPhotoSetVersion
-            )
-            userInfo.put(
-                IdentityNotifications.NOTIFICATION_CONTACT_PHOTO_SET_IS_TRUSTED_KEY,
+            userInfo[IdentityNotifications.NOTIFICATION_CONTACT_PHOTO_SET_IS_TRUSTED_KEY] =
                 hookPhotoSetVersion == trustedDetailsVersion
-            )
             identityManagerSession.notificationPostingDelegate?.postNotification(
                 IdentityNotifications.NOTIFICATION_CONTACT_PHOTO_SET,
                 userInfo
@@ -854,18 +833,12 @@ class ContactIdentity : ObvDatabase {
         }
         if ((commitHookBits and HOOK_BIT_TRUST_LEVEL_INCREASED) != 0L) {
             val userInfo = HashMap<String, Any>()
-            userInfo.put(
-                IdentityNotifications.NOTIFICATION_CONTACT_TRUST_LEVEL_INCREASED_CONTACT_IDENTITY_KEY,
+            userInfo[IdentityNotifications.NOTIFICATION_CONTACT_TRUST_LEVEL_INCREASED_CONTACT_IDENTITY_KEY] =
                 contactIdentity
-            )
-            userInfo.put(
-                IdentityNotifications.NOTIFICATION_CONTACT_TRUST_LEVEL_INCREASED_OWNED_IDENTITY_KEY,
+            userInfo[IdentityNotifications.NOTIFICATION_CONTACT_TRUST_LEVEL_INCREASED_OWNED_IDENTITY_KEY] =
                 ownedIdentity
-            )
-            userInfo.put(
-                IdentityNotifications.NOTIFICATION_CONTACT_TRUST_LEVEL_INCREASED_TRUST_LEVEL_KEY,
+            userInfo[IdentityNotifications.NOTIFICATION_CONTACT_TRUST_LEVEL_INCREASED_TRUST_LEVEL_KEY] =
                 trustLevel
-            )
             identityManagerSession.notificationPostingDelegate?.postNotification(
                 IdentityNotifications.NOTIFICATION_CONTACT_TRUST_LEVEL_INCREASED,
                 userInfo
@@ -873,18 +846,12 @@ class ContactIdentity : ObvDatabase {
         }
         if ((commitHookBits and HOOK_BIT_KEYCLOAK_MANAGED_CHANGED) != 0L) {
             val userInfo = HashMap<String, Any>()
-            userInfo.put(
-                IdentityNotifications.NOTIFICATION_CONTACT_KEYCLOAK_MANAGED_CHANGED_CONTACT_IDENTITY_KEY,
+            userInfo[IdentityNotifications.NOTIFICATION_CONTACT_KEYCLOAK_MANAGED_CHANGED_CONTACT_IDENTITY_KEY] =
                 contactIdentity
-            )
-            userInfo.put(
-                IdentityNotifications.NOTIFICATION_CONTACT_KEYCLOAK_MANAGED_CHANGED_OWNED_IDENTITY_KEY,
+            userInfo[IdentityNotifications.NOTIFICATION_CONTACT_KEYCLOAK_MANAGED_CHANGED_OWNED_IDENTITY_KEY] =
                 ownedIdentity
-            )
-            userInfo.put(
-                IdentityNotifications.NOTIFICATION_CONTACT_KEYCLOAK_MANAGED_CHANGED_KEYCLOAK_MANAGED_KEY,
+            userInfo[IdentityNotifications.NOTIFICATION_CONTACT_KEYCLOAK_MANAGED_CHANGED_KEYCLOAK_MANAGED_KEY] =
                 this.isCertifiedByOwnKeycloak
-            )
             identityManagerSession.notificationPostingDelegate?.postNotification(
                 IdentityNotifications.NOTIFICATION_CONTACT_KEYCLOAK_MANAGED_CHANGED,
                 userInfo
@@ -892,18 +859,11 @@ class ContactIdentity : ObvDatabase {
         }
         if ((commitHookBits and HOOK_BIT_ACTIVE_CHANGED) != 0L) {
             val userInfo = HashMap<String, Any>()
-            userInfo.put(
-                IdentityNotifications.NOTIFICATION_CONTACT_ACTIVE_CHANGED_CONTACT_IDENTITY_KEY,
+            userInfo[IdentityNotifications.NOTIFICATION_CONTACT_ACTIVE_CHANGED_CONTACT_IDENTITY_KEY] =
                 contactIdentity
-            )
-            userInfo.put(
-                IdentityNotifications.NOTIFICATION_CONTACT_ACTIVE_CHANGED_OWNED_IDENTITY_KEY,
+            userInfo[IdentityNotifications.NOTIFICATION_CONTACT_ACTIVE_CHANGED_OWNED_IDENTITY_KEY] =
                 ownedIdentity
-            )
-            userInfo.put(
-                IdentityNotifications.NOTIFICATION_CONTACT_ACTIVE_CHANGED_ACTIVE_KEY,
-                this.isActive
-            )
+            userInfo[IdentityNotifications.NOTIFICATION_CONTACT_ACTIVE_CHANGED_ACTIVE_KEY] = this.isActive
             identityManagerSession.notificationPostingDelegate?.postNotification(
                 IdentityNotifications.NOTIFICATION_CONTACT_ACTIVE_CHANGED,
                 userInfo
@@ -911,14 +871,10 @@ class ContactIdentity : ObvDatabase {
         }
         if ((commitHookBits and HOOK_BIT_REVOKED) != 0L) {
             val userInfo = HashMap<String, Any>()
-            userInfo.put(
-                IdentityNotifications.NOTIFICATION_CONTACT_REVOKED_CONTACT_IDENTITY_KEY,
+            userInfo[IdentityNotifications.NOTIFICATION_CONTACT_REVOKED_CONTACT_IDENTITY_KEY] =
                 contactIdentity
-            )
-            userInfo.put(
-                IdentityNotifications.NOTIFICATION_CONTACT_REVOKED_OWNED_IDENTITY_KEY,
+            userInfo[IdentityNotifications.NOTIFICATION_CONTACT_REVOKED_OWNED_IDENTITY_KEY] =
                 ownedIdentity
-            )
             identityManagerSession.notificationPostingDelegate?.postNotification(
                 IdentityNotifications.NOTIFICATION_CONTACT_REVOKED,
                 userInfo
@@ -926,18 +882,12 @@ class ContactIdentity : ObvDatabase {
         }
         if ((commitHookBits and HOOK_BIT_ONE_TO_ONE_CHANGED) != 0L) {
             val userInfo = HashMap<String, Any>()
-            userInfo.put(
-                IdentityNotifications.NOTIFICATION_CONTACT_ONE_TO_ONE_CHANGED_CONTACT_IDENTITY_KEY,
+            userInfo[IdentityNotifications.NOTIFICATION_CONTACT_ONE_TO_ONE_CHANGED_CONTACT_IDENTITY_KEY] =
                 contactIdentity
-            )
-            userInfo.put(
-                IdentityNotifications.NOTIFICATION_CONTACT_ONE_TO_ONE_CHANGED_OWNED_IDENTITY_KEY,
+            userInfo[IdentityNotifications.NOTIFICATION_CONTACT_ONE_TO_ONE_CHANGED_OWNED_IDENTITY_KEY] =
                 ownedIdentity
-            )
-            userInfo.put(
-                IdentityNotifications.NOTIFICATION_CONTACT_ONE_TO_ONE_CHANGED_ONE_TO_ONE_KEY,
+            userInfo[IdentityNotifications.NOTIFICATION_CONTACT_ONE_TO_ONE_CHANGED_ONE_TO_ONE_KEY] =
                 isOneToOne()
-            )
             identityManagerSession.notificationPostingDelegate?.postNotification(
                 IdentityNotifications.NOTIFICATION_CONTACT_ONE_TO_ONE_CHANGED,
                 userInfo
@@ -945,18 +895,12 @@ class ContactIdentity : ObvDatabase {
         }
         if ((commitHookBits and HOOK_BIT_RECENTLY_ONLINE_CHANGED) != 0L) {
             val userInfo = HashMap<String, Any>()
-            userInfo.put(
-                IdentityNotifications.NOTIFICATION_CONTACT_RECENTLY_ONLINE_CHANGED_CONTACT_IDENTITY_KEY,
+            userInfo[IdentityNotifications.NOTIFICATION_CONTACT_RECENTLY_ONLINE_CHANGED_CONTACT_IDENTITY_KEY] =
                 contactIdentity
-            )
-            userInfo.put(
-                IdentityNotifications.NOTIFICATION_CONTACT_RECENTLY_ONLINE_CHANGED_OWNED_IDENTITY_KEY,
+            userInfo[IdentityNotifications.NOTIFICATION_CONTACT_RECENTLY_ONLINE_CHANGED_OWNED_IDENTITY_KEY] =
                 ownedIdentity
-            )
-            userInfo.put(
-                IdentityNotifications.NOTIFICATION_CONTACT_RECENTLY_ONLINE_CHANGED_RECENTLY_ONLINE_KEY,
+            userInfo[IdentityNotifications.NOTIFICATION_CONTACT_RECENTLY_ONLINE_CHANGED_RECENTLY_ONLINE_KEY] =
                 recentlyOnline
-            )
             identityManagerSession.notificationPostingDelegate?.postNotification(
                 IdentityNotifications.NOTIFICATION_CONTACT_RECENTLY_ONLINE_CHANGED,
                 userInfo

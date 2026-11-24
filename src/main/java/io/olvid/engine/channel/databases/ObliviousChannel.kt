@@ -330,17 +330,17 @@ class ObliviousChannel : NetworkChannel, ObvDatabase {
         }
         if ((commitHookBits and HOOK_BIT_CHANNEL_CONFIRMED) != 0L) {
             // refresh members of groups owned by the remoteIdentity (useful after a backup restore)
-            channelManagerSession.identityDelegate!!.refreshMembersOfGroupsOwnedByGroupOwner(
+            channelManagerSession.identityDelegate?.refreshMembersOfGroupsOwnedByGroupOwner(
                 currentDeviceUid,
                 remoteIdentity
             )
             // re-invite members of groups owned (useful after a backup restore)
-            channelManagerSession.identityDelegate.pushMembersOfOwnedGroupsToContact(
+            channelManagerSession.identityDelegate?.pushMembersOfOwnedGroupsToContact(
                 currentDeviceUid,
                 remoteIdentity
             )
             // resend a batch of all keys for common groups V2
-            channelManagerSession.identityDelegate.initiateGroupV2BatchKeysResend(
+            channelManagerSession.identityDelegate?.initiateGroupV2BatchKeysResend(
                 currentDeviceUid,
                 remoteIdentity,
                 remoteDeviceUid

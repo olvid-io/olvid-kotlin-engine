@@ -3571,7 +3571,7 @@ class GroupsV2Protocol(
             var pingSenderIdentity: Identity? = null
             run {
                 // find the member/pending members that sent the message
-                val pingSenderCandidates: MutableList<Identity?>? =
+                val pingSenderCandidates: MutableList<Identity>? =
                     protocolManagerSession.identityDelegate.getGroupV2MembersAndPendingMembersFromNonce(
                         protocolManagerSession.session,
                         ownedIdentity,
@@ -3586,7 +3586,7 @@ class GroupsV2Protocol(
                                 receivedMessage.groupIdentifier,
                                 receivedMessage.groupMemberInvitationNonce,
                                 ownedIdentity,
-                                pingSenderCandidate!!,
+                                pingSenderCandidate,
                                 receivedMessage.signature
                             )
                         ) {

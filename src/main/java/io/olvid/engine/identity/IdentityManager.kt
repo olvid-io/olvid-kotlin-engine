@@ -373,7 +373,7 @@ class IdentityManager(
                 for (contactGroupV2 in ContactGroupV2.getAll(identityManagerSession)) {
                     ContactGroupV2Details.cleanup(
                         identityManagerSession,
-                        contactGroupV2!!.ownedIdentity,
+                        contactGroupV2.ownedIdentity,
                         contactGroupV2.groupIdentifier,
                         contactGroupV2.version,
                         contactGroupV2.getTrustedDetailsVersion()
@@ -491,21 +491,20 @@ class IdentityManager(
                 for (contactGroupV2 in ContactGroupV2.getAllKeycloak(
                     identityManagerSession
                 )) {
-                    contactGroupV2?.serializedSharedSettings?.let { serializedSharedSettings ->
-                        val userInfo = HashMap<String, Any>()
-                        userInfo[IdentityNotifications.NOTIFICATION_KEYCLOAK_GROUP_V2_SHARED_SETTINGS_OWNED_IDENTITY_KEY] =
-                            contactGroupV2.ownedIdentity
-                        userInfo[IdentityNotifications.NOTIFICATION_KEYCLOAK_GROUP_V2_SHARED_SETTINGS_GROUP_IDENTIFIER_KEY] =
-                            contactGroupV2.groupIdentifier
-                        userInfo[IdentityNotifications.NOTIFICATION_KEYCLOAK_GROUP_V2_SHARED_SETTINGS_SERIALIZED_SHARED_SETTINGS_KEY] =
-                            serializedSharedSettings
-                        userInfo[IdentityNotifications.NOTIFICATION_KEYCLOAK_GROUP_V2_SHARED_SETTINGS_MODIFICATION_TIMESTAMP_KEY] =
-                            contactGroupV2.lastModificationTimestamp
-                        notificationPostingDelegate?.postNotification(
-                            IdentityNotifications.NOTIFICATION_KEYCLOAK_GROUP_V2_SHARED_SETTINGS,
-                            userInfo
-                        )
+                    val userInfo = HashMap<String, Any>()
+                    userInfo[IdentityNotifications.NOTIFICATION_KEYCLOAK_GROUP_V2_SHARED_SETTINGS_OWNED_IDENTITY_KEY] =
+                        contactGroupV2.ownedIdentity
+                    userInfo[IdentityNotifications.NOTIFICATION_KEYCLOAK_GROUP_V2_SHARED_SETTINGS_GROUP_IDENTIFIER_KEY] =
+                        contactGroupV2.groupIdentifier
+                    contactGroupV2?.serializedSharedSettings?.let {
+                        userInfo[IdentityNotifications.NOTIFICATION_KEYCLOAK_GROUP_V2_SHARED_SETTINGS_SERIALIZED_SHARED_SETTINGS_KEY] = it
                     }
+                    userInfo[IdentityNotifications.NOTIFICATION_KEYCLOAK_GROUP_V2_SHARED_SETTINGS_MODIFICATION_TIMESTAMP_KEY] =
+                        contactGroupV2.lastModificationTimestamp
+                    notificationPostingDelegate?.postNotification(
+                        IdentityNotifications.NOTIFICATION_KEYCLOAK_GROUP_V2_SHARED_SETTINGS,
+                        userInfo
+                    )
                 }
             }
         } catch (e: Exception) {
@@ -5058,7 +5057,7 @@ class IdentityManager(
         ownedIdentity: Identity?,
         groupIdentifier: GroupV2.Identifier?,
         groupMemberInvitationNonce: ByteArray?
-    ): MutableList<Identity?>? {
+    ): MutableList<Identity>? {
         if ((ownedIdentity == null) || (groupIdentifier == null) || (groupMemberInvitationNonce == null)) {
             return null
         }
@@ -5601,8 +5600,7 @@ class IdentityManager(
                 }
             }
 
-            val capturedSerializedSharedSettings = keycloakGroupBlob.serializedSharedSettings
-            if (capturedSerializedSharedSettings != null) {
+            keycloakGroupBlob.serializedSharedSettings?.let { capturedSerializedSharedSettings ->
                 session.addSessionCommitListener {
                     val userInfo = HashMap<String, Any>()
                     userInfo[IdentityNotifications.NOTIFICATION_KEYCLOAK_GROUP_V2_SHARED_SETTINGS_OWNED_IDENTITY_KEY] =
@@ -5644,11 +5642,8 @@ class IdentityManager(
             throw SQLException("Calling updateKeycloakGroupV2WithNewBlob outside a transaction!")
         }
 
-        val groupV2: ContactGroupV2? =
-            ContactGroupV2.get(wrapSession(session), ownedIdentity, groupIdentifier)
-        if (groupV2 == null) {
-            return null
-        }
+        val groupV2: ContactGroupV2 =
+            ContactGroupV2.get(wrapSession(session), ownedIdentity, groupIdentifier) ?: return null
 
         session.addSessionCommitListener(backupNeededSessionCommitListener)
         session.addSessionCommitListener(getSessionCommitListenerForProfileBackup(ownedIdentity))

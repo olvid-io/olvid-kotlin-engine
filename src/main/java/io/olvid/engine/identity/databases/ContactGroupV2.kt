@@ -688,21 +688,17 @@ class ContactGroupV2 : ObvDatabase {
         keycloakGroupBlob: KeycloakGroupBlob,
         jsonObjectMapper: ObjectMapper
     ): KeycloakGroupV2UpdateOutput? {
-        val groupIdentifier =
-            this.groupIdentifier
+        val groupIdentifier = this.groupIdentifier
 
         // build a hashmap of group members for easier access
         val groupMembersMap = HashMap<Identity?, KeycloakGroupMemberAndPermissions?>()
         for (groupMemberAndPermissions in keycloakGroupBlob.deduplicatedGroupMembersAndPermissions()) {
             val memberIdentity = Identity.of(groupMemberAndPermissions.identity!!)
-            groupMembersMap.put(memberIdentity, groupMemberAndPermissions)
+            groupMembersMap[memberIdentity] = groupMemberAndPermissions
         }
 
         // get my own updated information
-        val ownKeycloakGroupMemberAndPermissions = groupMembersMap.remove(ownedIdentity)
-        if (ownKeycloakGroupMemberAndPermissions == null) {
-            return null
-        }
+        val ownKeycloakGroupMemberAndPermissions = groupMembersMap.remove(ownedIdentity) ?: return null
 
 
         // update the ContactGroupV2
@@ -716,29 +712,19 @@ class ContactGroupV2 : ObvDatabase {
         }
         if (this.serializedSharedSettings != keycloakGroupBlob.serializedSharedSettings) {
             this.serializedSharedSettings = keycloakGroupBlob.serializedSharedSettings
-            identityManagerSession.session.addSessionCommitListener(SessionCommitListener {
+            identityManagerSession.session.addSessionCommitListener {
                 val userInfo = HashMap<String, Any>()
-                userInfo.put(
-                    IdentityNotifications.NOTIFICATION_KEYCLOAK_GROUP_V2_SHARED_SETTINGS_OWNED_IDENTITY_KEY,
-                    ownedIdentity
-                )
-                userInfo.put(
-                    IdentityNotifications.NOTIFICATION_KEYCLOAK_GROUP_V2_SHARED_SETTINGS_GROUP_IDENTIFIER_KEY,
-                    groupIdentifier
-                )
-                userInfo.put(
-                    IdentityNotifications.NOTIFICATION_KEYCLOAK_GROUP_V2_SHARED_SETTINGS_SERIALIZED_SHARED_SETTINGS_KEY,
-                    keycloakGroupBlob.serializedSharedSettings!!
-                )
-                userInfo.put(
-                    IdentityNotifications.NOTIFICATION_KEYCLOAK_GROUP_V2_SHARED_SETTINGS_MODIFICATION_TIMESTAMP_KEY,
-                    keycloakGroupBlob.timestamp
-                )
+                userInfo[IdentityNotifications.NOTIFICATION_KEYCLOAK_GROUP_V2_SHARED_SETTINGS_OWNED_IDENTITY_KEY] = ownedIdentity
+                userInfo[IdentityNotifications.NOTIFICATION_KEYCLOAK_GROUP_V2_SHARED_SETTINGS_GROUP_IDENTIFIER_KEY] = groupIdentifier
+                keycloakGroupBlob.serializedSharedSettings?.let {
+                    userInfo[IdentityNotifications.NOTIFICATION_KEYCLOAK_GROUP_V2_SHARED_SETTINGS_SERIALIZED_SHARED_SETTINGS_KEY] = it
+                }
+                userInfo[IdentityNotifications.NOTIFICATION_KEYCLOAK_GROUP_V2_SHARED_SETTINGS_MODIFICATION_TIMESTAMP_KEY] = keycloakGroupBlob.timestamp
                 identityManagerSession.notificationPostingDelegate?.postNotification(
                     IdentityNotifications.NOTIFICATION_KEYCLOAK_GROUP_V2_SHARED_SETTINGS,
                     userInfo
                 )
-            })
+            }
         }
         update()
 
@@ -1074,28 +1060,16 @@ class ContactGroupV2 : ObvDatabase {
     override fun wasCommitted() {
         if ((commitHookBits and HOOK_BIT_INSERTED) != 0L) {
             val userInfo = HashMap<String, Any>()
-            userInfo.put(
-                IdentityNotifications.NOTIFICATION_GROUP_V2_CREATED_OWNED_IDENTITY_KEY,
+            userInfo[IdentityNotifications.NOTIFICATION_GROUP_V2_CREATED_OWNED_IDENTITY_KEY] =
                 ownedIdentity
-            )
-            userInfo.put(
-                IdentityNotifications.NOTIFICATION_GROUP_V2_CREATED_GROUP_IDENTIFIER_KEY,
+            userInfo[IdentityNotifications.NOTIFICATION_GROUP_V2_CREATED_GROUP_IDENTIFIER_KEY] =
                 this.groupIdentifier
-            )
-            userInfo.put(
-                IdentityNotifications.NOTIFICATION_GROUP_V2_CREATED_CREATED_BY_ME_KEY,
-                (commitHookBits and HOOK_BIT_INSERTED_AS_NEW) != 0L
-            )
-            userInfo.put(
-                IdentityNotifications.NOTIFICATION_GROUP_V2_CREATED_ON_OTHER_DEVICE_KEY,
-                (commitHookBits and HOOK_BIT_CREATED_ON_OTHER_DEVICE) != 0L
-            )
+            userInfo[IdentityNotifications.NOTIFICATION_GROUP_V2_CREATED_CREATED_BY_ME_KEY] = (commitHookBits and HOOK_BIT_INSERTED_AS_NEW) != 0L
+            userInfo[IdentityNotifications.NOTIFICATION_GROUP_V2_CREATED_ON_OTHER_DEVICE_KEY] = (commitHookBits and HOOK_BIT_CREATED_ON_OTHER_DEVICE) != 0L
             val hookInviterIdentity = inviterIdentity
             if (hookInviterIdentity != null) {
-                userInfo.put(
-                    IdentityNotifications.NOTIFICATION_GROUP_V2_CREATED_BY_KEY,
+                userInfo[IdentityNotifications.NOTIFICATION_GROUP_V2_CREATED_BY_KEY] =
                     hookInviterIdentity
-                )
             }
             identityManagerSession.notificationPostingDelegate?.postNotification(
                 IdentityNotifications.NOTIFICATION_GROUP_V2_CREATED,
@@ -2013,13 +1987,13 @@ class ContactGroupV2 : ObvDatabase {
         }
 
         @Throws(SQLException::class)
-        fun getAll(identityManagerSession: IdentityManagerSession): MutableList<ContactGroupV2?> {
+        fun getAll(identityManagerSession: IdentityManagerSession): MutableList<ContactGroupV2> {
             identityManagerSession.session.prepareStatement(
                 "ContactGroupV2.getAll",
                 "SELECT * FROM " + TABLE_NAME + ";"
             ).use { statement ->
                 statement.executeQuery().use { res ->
-                    val list: MutableList<ContactGroupV2?> = ArrayList<ContactGroupV2?>()
+                    val list: MutableList<ContactGroupV2> = mutableListOf()
                     while (res.next()) {
                         list.add(ContactGroupV2(identityManagerSession, res))
                     }
@@ -2029,14 +2003,14 @@ class ContactGroupV2 : ObvDatabase {
         }
 
         @Throws(SQLException::class)
-        fun getAllKeycloak(identityManagerSession: IdentityManagerSession): MutableList<ContactGroupV2?> {
+        fun getAllKeycloak(identityManagerSession: IdentityManagerSession): MutableList<ContactGroupV2> {
             identityManagerSession.session.prepareStatement(
                 "ContactGroupV2.getAllKeycloak",
                 "SELECT * FROM " + TABLE_NAME +
                         " WHERE " + CATEGORY + " = " + GroupV2.Identifier.CATEGORY_KEYCLOAK + ";"
             ).use { statement ->
                 statement.executeQuery().use { res ->
-                    val list: MutableList<ContactGroupV2?> = ArrayList<ContactGroupV2?>()
+                    val list: MutableList<ContactGroupV2> = mutableListOf()
                     while (res.next()) {
                         list.add(ContactGroupV2(identityManagerSession, res))
                     }
@@ -2052,7 +2026,7 @@ class ContactGroupV2 : ObvDatabase {
             ownedIdentity: Identity,
             groupIdentifier: GroupV2.Identifier,
             groupMemberInvitationNonce: ByteArray?
-        ): MutableList<Identity?> {
+        ): MutableList<Identity> {
             identityManagerSession.session.prepareStatement(
                 "ContactGroupV2.getGroupV2MembersAndPendingMembersFromNonce",
                 " SELECT " + ContactGroupV2Member.CONTACT_IDENTITY + " AS id " +
@@ -2081,7 +2055,7 @@ class ContactGroupV2 : ObvDatabase {
                 statement.setBytes(9, ownedIdentity.getBytes())
                 statement.setBytes(10, groupMemberInvitationNonce)
                 statement.executeQuery().use { res ->
-                    val list: MutableList<Identity?> = ArrayList<Identity?>()
+                    val list: MutableList<Identity> = mutableListOf()
                     while (res.next()) {
                         list.add(Identity.of(res.getBytes("id")))
                     }

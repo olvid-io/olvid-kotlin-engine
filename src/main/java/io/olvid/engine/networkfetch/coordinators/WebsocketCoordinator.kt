@@ -1155,8 +1155,7 @@ class WebsocketCoordinator(
                 }
             }
 
-            val userAgentProperty =
-                if (userAgentOverride != null) userAgentOverride else System.getProperty("http.agent")
+            val userAgentProperty = userAgentOverride ?: System.getProperty("http.agent")
             if (userAgentProperty != null) {
                 builder.addInterceptor(
                     Interceptor { chain: Interceptor.Chain ->

@@ -1126,7 +1126,7 @@ interface IdentityDelegate {
         ownedIdentity: Identity?,
         groupIdentifier: GroupV2.Identifier?,
         groupMemberInvitationNonce: ByteArray?
-    ): MutableList<Identity?>?
+    ): MutableList<Identity>?
 
     @Throws(SQLException::class)
     fun getGroupV2OwnGroupInvitationNonce(
